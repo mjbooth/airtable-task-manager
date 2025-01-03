@@ -3,7 +3,7 @@ import {
   Box, 
   VStack, 
   Heading, 
-  Text, 
+  Text,
   Spinner, 
   Badge,
   Flex,
@@ -15,11 +15,14 @@ import {
   AccordionButton,
   AccordionPanel,
   AccordionIcon,
-  SimpleGrid,
   HStack,
+  IconButton,
 } from '@chakra-ui/react';
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
+import { InfoIcon, ArrowForwardIcon } from '@chakra-ui/icons';
+import { BsThreeDots } from 'react-icons/bs';
 import { fetchTasks, fetchClients } from '../airtableConfig';
+import ClientModal from './ClientModal';
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([]);
@@ -27,6 +30,8 @@ const TaskList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const getData = async () => {
     setLoading(true);
@@ -92,6 +97,12 @@ const TaskList = () => {
     'Unknown'
   ];
 
+  const handleClientClick = (clientName) => {
+    const client = clients.find(c => c.name === clientName);
+    setSelectedClient(client);
+    setIsModalOpen(true);
+  };
+
   const sortedGroupedTasks = Object.entries(groupedTasks).sort((a, b) => {
     return lifecycleStageOrder.indexOf(a[0]) - lifecycleStageOrder.indexOf(b[0]);
   });
@@ -126,12 +137,25 @@ const TaskList = () => {
                 <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="md">
                   <Accordion allowMultiple>
                     <AccordionItem border="none">
-                      <AccordionButton>
-                        <Box flex="1" textAlign="left">
-                          <Heading as="h4" size="sm">{clientName}</Heading>
-                        </Box>
-                        <AccordionIcon />
-                      </AccordionButton>
+                      <Flex alignItems="center">
+                        <AccordionButton flex="1">
+                          <Box flex="1" textAlign="left">
+                            <Heading as="h4" size="sm">{clientName}</Heading>
+                          </Box>
+                          <AccordionIcon />
+                        </AccordionButton>
+                        <IconButton
+                          aria-label="Open client details"
+                          icon={<BsThreeDots />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClientClick(clientName);
+                          }}
+                          mr={2}
+                        />
+                      </Flex>
                       <AccordionPanel pb={4}>
                         <VStack spacing={2} align="stretch">
                           {tasks.map(task => (
@@ -176,6 +200,15 @@ const TaskList = () => {
           </Box>
         ))}
       </HStack>
+      {selectedClient && (
+        <ClientModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          client={selectedClient}
+          tasks={tasks.filter(task => task.Client === selectedClient.name)}
+          getStatusColor={getStatusColor}
+        />
+      )}
     </Box>
   );
 };

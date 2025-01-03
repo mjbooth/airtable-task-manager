@@ -47,19 +47,14 @@ export const fetchTasks = async () => {
   };
   
   export const fetchClients = async () => {
-    if (!clientTable) {
-      console.error('Client table is not configured properly.');
-      throw new Error('Client table is not configured properly.');
-    }
-  
     try {
-      console.log('Fetching clients...');
       const records = await clientTable.select().all();
-      console.log(`Fetched ${records.length} clients`);
       return records.map(record => ({
         id: record.id,
         name: record.fields.Client, // Assuming 'Client' is the field name for client name
         lifecycleStage: record.fields['Lifecycle Stage'] || 'Unknown', // Adjust if the field name is different
+        status: record.get('Status'),
+        lastUpdated: record.get('Last Updated'), // Make sure 'Last Updated' matches your Airtable column name
         ...record.fields,
       }));
     } catch (error) {
