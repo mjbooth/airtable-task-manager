@@ -58,6 +58,18 @@ const TaskList = () => {
     getData();
   }, []);
 
+  useEffect(() => {
+    if (!isClientModalOpen) {
+      setSelectedClient(null);
+    }
+  }, [isClientModalOpen]);
+  
+  useEffect(() => {
+    if (!isTaskModalOpen) {
+      setSelectedTask(null);
+    }
+  }, [isTaskModalOpen]);
+
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'completed': return 'green';
@@ -105,6 +117,10 @@ const TaskList = () => {
     const client = clients.find(c => c.name === clientName);
     setSelectedClient(client);
     setIsClientModalOpen(true);
+    // Close the TaskModal if it's open
+    if (isTaskModalOpen) {
+      setIsTaskModalOpen(false);
+    }
   };
 
   const sortedGroupedTasks = Object.entries(groupedTasks).sort((a, b) => {
@@ -136,7 +152,19 @@ const TaskList = () => {
   const handleTaskClick = (task) => {
     setSelectedTask(task);
     setIsTaskModalOpen(true);
+    // Close the ClientModal if it's open
+    if (isClientModalOpen) {
+      setIsClientModalOpen(false);
+    }
   };
+
+  const handleOpenClientModal = (clientName) => {
+    const client = clients.find(c => c.name === clientName);
+    setSelectedClient(client);
+    setIsClientModalOpen(true);
+    setIsTaskModalOpen(false);  // Close the task modal
+  };
+
 
   return (
     <Box width="100%" maxWidth="100%">
@@ -210,7 +238,6 @@ const TaskList = () => {
                                     {task.Status}
                                   </Badge>
                                 </Flex>
-                                <Text fontSize="xs" noOfLines={2}>{task.Description}</Text>
                                 <Flex align="left" justify="space-between" width="100%">
                                   <Tooltip label={task.Owner || 'Unassigned'}>
                                     <Avatar 
@@ -253,6 +280,7 @@ const TaskList = () => {
           onClose={() => setIsTaskModalOpen(false)}
           task={selectedTask}
           getStatusColor={getStatusColor}
+          onOpenClientModal={handleOpenClientModal}
         />
       )}
     </Box>

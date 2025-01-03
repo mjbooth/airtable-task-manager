@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -16,7 +16,12 @@ import {
   Flex,
   Spinner,
   Center,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  Divider,
 } from '@chakra-ui/react';
+import { ChevronRightIcon } from '@chakra-ui/icons';
 import { format } from 'date-fns';
 
 const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
@@ -26,57 +31,88 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
     return format(date, "MMMM d, yyyy");
   };
 
+  const handleTaskModalClose = () => {
+    onClose();
+  };
+
+  useEffect(() => {
+    return () => {
+      // Clean up function to reset any state when the modal is unmounted
+      // This ensures that closing the TaskModal doesn't affect other components
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="5xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleTaskModalClose}
+      size="5xl"
+      closeOnOverlayClick={true}
+      onOverlayClick={handleTaskModalClose}
+    >
       <ModalOverlay />
       <ModalContent>
         {task ? (
           <>
-            <ModalHeader>{task.Name}</ModalHeader>
-            <ModalCloseButton />
+            <ModalHeader>
+              <Breadcrumb spacing='8px' separator={<ChevronRightIcon color='gray.500' />}>
+                <BreadcrumbItem>
+                  <BreadcrumbLink onClick={() => onOpenClientModal(task.Client)}>
+                    {task.Client}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </Breadcrumb>
+            </ModalHeader>
+            <ModalCloseButton onClick={handleTaskModalClose} />
             <ModalBody>
-              <VStack align="stretch" spacing={4}>
-                <Box>
-                  <Heading as="h4" size="sm" mb={2}>Status</Heading>
-                  <Badge 
-                    colorScheme={getStatusColor(task.Status)} 
-                    fontSize="x-small"
-                    px={2}
-                    py={1}
-                    borderRadius="full"
-                  >
-                    {task.Status}</Badge>
+              <Flex>
+                {/* Left column (2/3 width) */}
+                <Box flex="2" pr={5}>
+                  <VStack align="stretch" spacing={4}>
+                    <Box>
+                      <Heading as="h2" size="lg" mb={2}>{task.Name}</Heading>
+                    </Box>
+                    <Box>
+                      <Heading as="h4" size="md" mb={2}>Description</Heading>
+                      <Text>{task.Description}</Text>
+                    </Box>
+                    <Box>
+                      <Heading as="h4" size="sm" mb={2}>Due Date</Heading>
+                      <Text>{formatDate(task.DueDate)}</Text>
+                    </Box>
+                  </VStack>
                 </Box>
-                <Box>
-                  <Heading as="h4" size="sm" mb={2}>Description</Heading>
-                  <Text>{task.Description}</Text>
+                {/* Right column (1/3 width) */}
+                <Box flex="1" pl={4} borderLeft="1px" borderColor="gray.200">
+                  <VStack align="stretch" spacing={4}>
+                    <Box>
+                      <Badge
+                        colorScheme={getStatusColor(task.Status)}
+                        fontSize="sm"
+                        px={2}
+                        py={1}
+                        borderRadius="full"
+                      >
+                        {task.Status}
+                      </Badge>
+                    </Box>
+                    <Box>
+                      <Heading as="h4" size="sm" mb={2}>Client: {task.Client}</Heading>
+                      <Heading as="h4" size="sm" mb={2}>Owner: {task.AssignedOwner ? task.AssignedOwner[0] : 'Unassigned'}</Heading>
+                      <Text></Text>
+                    </Box>
+                  </VStack>
                 </Box>
-                <Flex justifyContent="space-between">
-                  <Box>
-                    <Heading as="h4" size="sm" mb={2}>Due Date</Heading>
-                    <Text>{formatDate(task.DueDate)}</Text>
-                  </Box>
-                  <Box>
-                    <Heading as="h4" size="sm" mb={2}>Client</Heading>
-                    <Text>{task.Client}</Text>
-                  </Box>
-                </Flex>
-                <Box>
-                  <Heading as="h4" size="sm" mb={2}>Assigned Owner</Heading>
-                  <Text>{task.AssignedOwner ? task.AssignedOwner[0] : 'Unassigned'}</Text>
-                </Box>
-              </VStack>
+              </Flex>
+
             </ModalBody>
-            <ModalFooter>
-              <Button colorScheme="blue" mr={3} onClick={onClose}>
-                Close
-              </Button>
-            </ModalFooter>
+            <ModalFooter></ModalFooter>
           </>
         ) : (
           <>
             <ModalHeader>Loading Task...</ModalHeader>
-            <ModalCloseButton />
+            <ModalCloseButton onClick={handleTaskModalClose} />
             <ModalBody>
               <Center h="200px">
                 <Spinner size="xl" />
