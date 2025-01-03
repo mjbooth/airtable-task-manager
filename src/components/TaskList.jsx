@@ -100,7 +100,7 @@ const TaskList = () => {
   if (error) return <Text color="red.500">{error}</Text>;
 
   return (
-    <Box width="100%" maxWidth="100%" margin="auto">
+    <Box width="100%" maxWidth="100%">
       <Flex justify="space-between" align="center" mb={4}>
         <Heading as="h2" size="xl">Task Board</Heading>
         <Button onClick={getData} colorScheme="blue">Refresh</Button>
@@ -120,7 +120,7 @@ const TaskList = () => {
       <HStack spacing={4} overflowX="auto" alignItems="flex-start" pb={4}>
         {sortedGroupedTasks.map(([lifecycleStage, clientTasks]) => (
           <Box key={lifecycleStage} width="400px">
-            <Heading as="h3" size="md" mb={4} textAlign="center">{lifecycleStage}</Heading>
+            <Heading as="h3" size="md" mb={4} textAlign="left">{lifecycleStage}</Heading>
             <VStack spacing={4} align="stretch">
               {Object.entries(clientTasks).map(([clientName, tasks]) => (
                 <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="md">
@@ -138,10 +138,10 @@ const TaskList = () => {
                             <Box key={task.id} p={3} borderWidth="1px" borderRadius="md" bg="gray.50">
                               <VStack align="start" spacing={2}>
                                 <Flex justify="space-between" width="100%" alignItems="center">
-                                  <Heading as="h5" size="xs">{task.Name}</Heading>
+                                  <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
                                   <Badge 
                                     colorScheme={getStatusColor(task.Status)} 
-                                    fontSize="xx-small"
+                                    fontSize="x-small"
                                     px={2}
                                     py={1}
                                     borderRadius="full"
@@ -153,14 +153,14 @@ const TaskList = () => {
                                 <Flex align="left" justify="space-between" width="100%">
                                   <Tooltip label={task.Owner || 'Unassigned'}>
                                     <Avatar 
-                                      size="2xs" 
+                                      size="xs" 
                                       name={task.Owner || 'Unassigned'} 
                                       bg={task.Owner ? "blue.500" : "gray.500"}
                                       color="white"
                                     />
                                   </Tooltip>
                                   {task.DueDate && (
-                                    <Text fontSize="xx-small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
+                                    <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
                                   )}
                                 </Flex>
                               </VStack>
