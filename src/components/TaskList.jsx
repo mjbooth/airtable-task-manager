@@ -23,6 +23,7 @@ import { InfoIcon, ArrowForwardIcon } from '@chakra-ui/icons';
 import { BsThreeDots } from 'react-icons/bs';
 import { fetchTasks, fetchClients, updateClientStatus } from '../airtableConfig';
 import ClientModal from './ClientModal';
+import TaskModal from './TaskModal';
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([]);
@@ -31,6 +32,9 @@ const TaskList = () => {
   const [error, setError] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const getData = async () => {
@@ -100,7 +104,7 @@ const TaskList = () => {
   const handleClientClick = (clientName) => {
     const client = clients.find(c => c.name === clientName);
     setSelectedClient(client);
-    setIsModalOpen(true);
+    setIsClientModalOpen(true);
   };
 
   const sortedGroupedTasks = Object.entries(groupedTasks).sort((a, b) => {
@@ -127,6 +131,11 @@ const TaskList = () => {
       console.error('Failed to update client status:', error);
       // Handle error (e.g., show an error message to the user)
     }
+  };
+
+  const handleTaskClick = (task) => {
+    setSelectedTask(task);
+    setIsTaskModalOpen(true);
   };
 
   return (
@@ -178,7 +187,16 @@ const TaskList = () => {
                       <AccordionPanel pb={4}>
                         <VStack spacing={2} align="stretch">
                           {tasks.map(task => (
-                            <Box key={task.id} p={3} borderWidth="1px" borderRadius="md" bg="gray.50">
+                            <Box 
+                              key={task.id}
+                              p={3}
+                              borderWidth="1px"
+                              borderRadius="md"
+                              bg="gray.50"
+                              onClick={() => handleTaskClick(task)}
+                              cursor="pointer"
+                              _hover={{ bg: "gray.100" }}
+                            >
                               <VStack align="start" spacing={2}>
                                 <Flex justify="space-between" width="100%" alignItems="center">
                                   <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
@@ -221,12 +239,20 @@ const TaskList = () => {
       </HStack>
       {selectedClient && (
         <ClientModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          isOpen={isClientModalOpen}
+          onClose={() => setIsClientModalOpen(false)}
           client={selectedClient}
-          tasks={tasks.filter(task => task.Client === selectedClient?.name)}
+          tasks={tasks.filter(task => task.Client === selectedClient.name)}
           getStatusColor={getStatusColor}
           onStatusUpdate={handleClientStatusUpdate}
+        />
+      )}
+      {selectedTask && (
+        <TaskModal
+          isOpen={isTaskModalOpen}
+          onClose={() => setIsTaskModalOpen(false)}
+          task={selectedTask}
+          getStatusColor={getStatusColor}
         />
       )}
     </Box>
