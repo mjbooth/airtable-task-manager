@@ -8,17 +8,18 @@ import {
   ModalBody,
   ModalCloseButton,
   Button,
-  Text,
   VStack,
   Box,
   Heading,
   Badge,
   Divider,
   Flex,
+  Text,
 } from '@chakra-ui/react';
 import { format } from 'date-fns';
+import EditableClientStatus from './EditableClientStatus';
 
-const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor }) => {
+const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate }) => {
     const formatDate = (dateString) => {
       if (!dateString) return 'No update time available';
       const date = new Date(dateString);
@@ -38,7 +39,10 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor }) => {
                 <Heading as="h4" size="md" mb={2}>Client Status</Heading>
                 <Text fontSize="sm" color="gray.600">Last update: {formatDate(client.lastUpdated)}</Text>
               </Flex>
-              <Text>{client.status || 'No status available'}</Text>
+              <EditableClientStatus 
+                status={client.status} 
+                onStatusUpdate={(newStatus) => onStatusUpdate(client.id, newStatus)}
+              />
             </Box>
             <Divider orientation='horizontal' />
             <Box>

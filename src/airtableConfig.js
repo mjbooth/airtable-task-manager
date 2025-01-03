@@ -62,3 +62,15 @@ export const fetchTasks = async () => {
       throw error;
     }
   };
+
+  export const updateClientStatus = async (clientId, newStatus) => {
+    try {
+      const updatedRecord = await base('Clients').update(clientId, {
+        Status: newStatus,
+      });
+      return updatedRecord;
+    } catch (error) {
+      console.error('Error updating client status:', error);
+      throw error;
+    }
+  };

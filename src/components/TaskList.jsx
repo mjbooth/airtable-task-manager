@@ -21,7 +21,7 @@ import {
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
 import { InfoIcon, ArrowForwardIcon } from '@chakra-ui/icons';
 import { BsThreeDots } from 'react-icons/bs';
-import { fetchTasks, fetchClients } from '../airtableConfig';
+import { fetchTasks, fetchClients, updateClientStatus } from '../airtableConfig';
 import ClientModal from './ClientModal';
 
 const TaskList = () => {
@@ -109,6 +109,25 @@ const TaskList = () => {
 
   if (loading) return <Spinner size="xl" />;
   if (error) return <Text color="red.500">{error}</Text>;
+
+  const handleClientStatusUpdate = async (clientId, newStatus) => {
+    try {
+      const updatedRecord = await updateClientStatus(clientId, newStatus);
+      // Update the local state
+      setClients(prevClients =>
+        prevClients.map(client =>
+          client.id === clientId ? { ...client, status: newStatus } : client
+        )
+      );
+      // If the selected client is the one being updated, update it as well
+      if (selectedClient && selectedClient.id === clientId) {
+        setSelectedClient(prevClient => ({ ...prevClient, status: newStatus }));
+      }
+    } catch (error) {
+      console.error('Failed to update client status:', error);
+      // Handle error (e.g., show an error message to the user)
+    }
+  };
 
   return (
     <Box width="100%" maxWidth="100%">
@@ -205,8 +224,9 @@ const TaskList = () => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           client={selectedClient}
-          tasks={tasks.filter(task => task.Client === selectedClient.name)}
+          tasks={tasks.filter(task => task.Client === selectedClient?.name)}
           getStatusColor={getStatusColor}
+          onStatusUpdate={handleClientStatusUpdate}
         />
       )}
     </Box>
