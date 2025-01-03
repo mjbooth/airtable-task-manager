@@ -38,7 +38,14 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
               <VStack align="stretch" spacing={4}>
                 <Box>
                   <Heading as="h4" size="sm" mb={2}>Status</Heading>
-                  <Badge colorScheme={getStatusColor(task.Status)}>{task.Status}</Badge>
+                  <Badge 
+                    colorScheme={getStatusColor(task.Status)} 
+                    fontSize="x-small"
+                    px={2}
+                    py={1}
+                    borderRadius="full"
+                  >
+                    {task.Status}</Badge>
                 </Box>
                 <Box>
                   <Heading as="h4" size="sm" mb={2}>Description</Heading>
