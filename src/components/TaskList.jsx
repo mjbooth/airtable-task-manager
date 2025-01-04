@@ -213,7 +213,7 @@ const TaskList = () => {
                         />
                       </Flex>
                       <AccordionPanel pb={4}>
-                        <VStack spacing={2} align="stretch">
+                        <VStack spacing={4} align="stretch">
                           {tasks.map(task => (
                             <Box 
                               key={task.id}
@@ -225,7 +225,7 @@ const TaskList = () => {
                               cursor="pointer"
                               _hover={{ bg: "gray.100" }}
                             >
-                              <VStack align="start" spacing={2}>
+                              <VStack align="start" spacing={4}>
                                 <Flex justify="space-between" width="100%" alignItems="center">
                                   <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
                                   <Badge 

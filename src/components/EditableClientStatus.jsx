@@ -7,7 +7,7 @@ import {
   Box,
 } from '@chakra-ui/react';
 
-const EditableClientStatus = ({ status, onStatusUpdate }) => {
+const EditableClientStatus = ({ status, displayStatus, onStatusUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedStatus, setEditedStatus] = useState(status);
 
@@ -47,8 +47,15 @@ const EditableClientStatus = ({ status, onStatusUpdate }) => {
 
   return (
     <Flex justifyContent="space-between" alignItems="center">
-      <Text>{status || 'No status available'}</Text>
-      <Button size="sm" onClick={handleEdit}>
+      <Box flex="1">
+        {displayStatus || <Text>No status available</Text>}
+      </Box>
+      <Button 
+        size="sm" 
+        onClick={handleEdit}
+        ml={4}
+        p={4}
+      >
         Edit
       </Button>
     </Flex>

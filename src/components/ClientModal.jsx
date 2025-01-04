@@ -20,6 +20,15 @@ import { format } from 'date-fns';
 import EditableClientStatus from './EditableClientStatus';
 import TaskModal from './TaskModal';
 
+const convertNewlinesToBreaks = (text) => {
+  return text.split('\n').map((line, index) => (
+    <React.Fragment key={index}>
+      {line}
+      {index !== text.split('\n').length - 1 && <br />}
+    </React.Fragment>
+  ));
+};
+
 const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -55,8 +64,22 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
     onClose();
   };
 
+  const sortTasks = (tasksToSort) => {
+    return [...tasksToSort].sort((a, b) => {
+      switch (sortMethod) {
+        case 'dueDate':
+          return new Date(a.DueDate) - new Date(b.DueDate);
+        case 'status':
+          return a.Status.localeCompare(b.Status);
+        case 'name':
+          return a.Name.localeCompare(b.Name);
+        default:
+          return 0;
+      }
+    });
+  };
+
   if (!client) {
-    console.log('No client data provided to ClientModal');
     return null;
   }
 
@@ -81,14 +104,15 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                   <Text fontSize="sm" color="gray.600">Last update: {formatDate(client.lastUpdated)}</Text>
                 </Flex>
                 <EditableClientStatus
-                  status={client.status}
+                  status={client.status} // Pass the original string status
+                  displayStatus={convertNewlinesToBreaks(client.status)} // Pass the formatted status for display
                   onStatusUpdate={(newStatus) => onStatusUpdate(client.id, newStatus)}
                 />
               </Box>
               <Divider orientation='horizontal' />
               <Box>
                 <Heading as="h4" size="md" mb={2}>Tasks</Heading>
-                <VStack align="stretch" spacing={2}>
+                <VStack align="stretch" spacing={4}>
                   {tasks && tasks.length > 0 ? tasks.map(task => (
                     <Box
                       key={task.id}
@@ -100,7 +124,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                       cursor="pointer"
                       _hover={{ bg: "gray.100" }}
                     >
-                      <VStack align="start" spacing={2}>
+                      <VStack align="start" spacing={4}>
                         <Heading as="h5" size="sm">{task.Name}</Heading>
                         <Badge
                           colorScheme={getStatusColor(task.Status)}
