@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -23,6 +23,7 @@ import {
 } from '@chakra-ui/react';
 import { ChevronRightIcon } from '@chakra-ui/icons';
 import { format } from 'date-fns';
+import axios from 'axios'; // Add this import
 
 const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
   const formatDate = (dateString) => {
@@ -30,6 +31,7 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
     const date = new Date(dateString);
     return format(date, "MMMM d, yyyy");
   };
+  const [ownerName, setOwnerName] = useState('');
 
   const handleTaskModalClose = () => {
     onClose();
@@ -42,6 +44,52 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
       document.body.style.overflow = '';
     };
   }, []);
+
+  const fetchOwnerName = async (ownerId) => {
+    if (!ownerId) {
+      setOwnerName('Unassigned');
+      return;
+    }
+
+    try {
+      console.log('Fetching owner name for ID:', ownerId);
+      console.log('PAT:', import.meta.env.VITE_AIRTABLE_PAT ? 'Set' : 'Not set');
+      console.log('Base ID:', import.meta.env.VITE_AIRTABLE_BASE_ID);
+      console.log('Team Table ID:', import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID);
+
+      const response = await axios.get(
+        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}/${ownerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
+          },
+        }
+      );
+
+      if (response.data && response.data.fields && response.data.fields.Name) {
+        setOwnerName(response.data.fields.Name);
+      } else {
+        setOwnerName('Unknown');
+      }
+    } catch (error) {
+      console.error('Error fetching owner name:', error);
+      console.error('Error details:', error.response ? error.response.data : 'No response data');
+      setOwnerName('Error');
+    }
+  };
+
+  useEffect(() => {
+    if (task && task.AssignedOwner && task.AssignedOwner.length > 0) {
+      fetchOwnerName(task.AssignedOwner[0]);
+    } else {
+      setOwnerName('Unassigned');
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      setOwnerName(''); // Reset owner name when component unmounts
+    };
+  }, [task]);
 
   return (
     <Modal
@@ -100,6 +148,7 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Client: {task.Client}</Heading>
                       <Heading as="h4" size="sm" mb={2}>Owner: {task.AssignedOwner ? task.AssignedOwner[0] : 'Unassigned'}</Heading>
+                      <Heading as="h4" size="sm" mb={2}>Owner: {ownerName}</Heading>
                       <Text></Text>
                     </Box>
                   </VStack>
