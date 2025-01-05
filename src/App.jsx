@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, VStack, Grid } from '@chakra-ui/react';
+import { ChakraProvider, Box, VStack, Grid } from '@chakra-ui/react';
 import { ErrorBoundary } from 'react-error-boundary';
 import TaskList from './components/TaskList';
+import theme from './theme';
 
 function ErrorFallback({error}) {
   return (
@@ -14,15 +15,17 @@ function ErrorFallback({error}) {
 
 function App() {
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <Box textAlign="center" fontSize="xl">
-        <Grid minH="100vh" p={3}>
-          <VStack spacing={8}>
-            <TaskList />
-          </VStack>
-        </Grid>
-      </Box>
-    </ErrorBoundary>
+    <ChakraProvider theme={theme}>
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <Box textAlign="center" fontSize="xl">
+          <Grid minH="100vh" p={3}>
+            <VStack spacing={8}>
+              <TaskList />
+            </VStack>
+          </Grid>
+        </Box>
+      </ErrorBoundary>
+    </ChakraProvider>
   );
 }
 

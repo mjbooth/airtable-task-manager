@@ -21,7 +21,7 @@ import {
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
 import { InfoIcon, ArrowForwardIcon } from '@chakra-ui/icons';
 import { BsThreeDots } from 'react-icons/bs';
-import { fetchTasks, fetchClients, updateClientStatus } from '../airtableConfig';
+import { fetchTasks, fetchClients, updateClientStatus, updateTask } from '../airtableConfig';
 import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
 
@@ -130,22 +130,33 @@ const TaskList = () => {
   if (loading) return <Spinner size="xl" />;
   if (error) return <Text color="red.500">{error}</Text>;
 
-  const handleClientStatusUpdate = async (clientId, newStatus) => {
+  const handleStatusChange = async (newStatus) => {
+    setCurrentStatus(newStatus);
     try {
-      const updatedRecord = await updateClientStatus(clientId, newStatus);
-      // Update the local state
-      setClients(prevClients =>
-        prevClients.map(client =>
-          client.id === clientId ? { ...client, status: newStatus } : client
-        )
-      );
-      // If the selected client is the one being updated, update it as well
-      if (selectedClient && selectedClient.id === clientId) {
-        setSelectedClient(prevClient => ({ ...prevClient, status: newStatus }));
-      }
+      const updatedTask = await updateTask({ ...task, Status: newStatus });
+      console.log('Task updated successfully:', updatedTask);
+      
+      // Refresh the task list
+      const updatedTasks = await fetchTasks();
+      // If you have a function to update tasks in the parent component, call it here
+      // For example: onTasksUpdate(updatedTasks);
+      
+      toast({
+        title: "Task updated",
+        description: "The task status has been successfully updated.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
-      console.error('Failed to update client status:', error);
-      // Handle error (e.g., show an error message to the user)
+      console.error('Error updating task status:', error);
+      toast({
+        title: "Error updating task",
+        description: "There was an error updating the task status. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
@@ -271,7 +282,6 @@ const TaskList = () => {
           client={selectedClient}
           tasks={tasks.filter(task => task.Client === selectedClient.name)}
           getStatusColor={getStatusColor}
-          onStatusUpdate={handleClientStatusUpdate}
         />
       )}
       {selectedTask && (
@@ -281,6 +291,7 @@ const TaskList = () => {
           task={selectedTask}
           getStatusColor={getStatusColor}
           onOpenClientModal={handleOpenClientModal}
+          onTasksUpdate={getData}
         />
       )}
     </Box>

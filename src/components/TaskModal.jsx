@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import StatusSelect from './StatusSelect';
+import axios from 'axios';
 import {
   Modal,
   ModalOverlay,
@@ -20,17 +23,79 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   Divider,
+  Select,
+  useToast,
+  Input,
+  Textarea,
 } from '@chakra-ui/react';
-import { ChevronRightIcon } from '@chakra-ui/icons';
-import { format } from 'date-fns';
-import axios from 'axios'; // Add this import
+import { ChevronRightIcon, EditIcon } from '@chakra-ui/icons';
+import { updateTask } from '../airtableConfig';
+import OwnerSelect from './OwnerSelect';
 
-const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
+const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) => {
+  const toast = useToast();
+  const [editMode, setEditMode] = useState(false);
+  const [editedTask, setEditedTask] = useState(task);
+  const [isChanged, setIsChanged] = useState(false);
+
+  useEffect(() => {
+    if (task) {
+      const currentDate = new Date();
+      const formattedDate = format(currentDate, "yyyy-MM-dd");
+      setEditedTask({
+        ...task,
+        DueDate: task.DueDate || formattedDate
+      });
+    }
+    setIsChanged(false);
+    setEditMode(false);
+  }, [task]);
+
   const formatDate = (dateString) => {
     if (!dateString) return 'No date available';
     const date = new Date(dateString);
     return format(date, "MMMM d, yyyy");
   };
+
+  const handleEditClick = () => {
+    setEditMode(true);
+  };
+
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    setEditedTask(prev => ({ ...prev, DueDate: newDate }));
+    setIsChanged(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      const updatedTask = await updateTask({
+        ...editedTask,
+        AssignedOwner: editedTask.AssignedOwner || []
+      });
+      console.log('Task updated successfully:', updatedTask);
+      toast({
+        title: "Task updated",
+        description: "The task has been successfully updated.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      setIsChanged(false);
+      setEditMode(false);
+      if (onTasksUpdate) onTasksUpdate();
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({
+        title: "Error updating task",
+        description: "There was an error updating the task. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+  
   const [ownerName, setOwnerName] = useState('');
 
   const handleTaskModalClose = () => {
@@ -39,11 +104,37 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
 
   useEffect(() => {
     return () => {
-      // Clean up function to reset any state when the modal is unmounted
-      // This ensures that closing the TaskModal doesn't affect other components
       document.body.style.overflow = '';
     };
   }, []);
+
+  const [currentStatus, setCurrentStatus] = useState(task ? task.Status : '');
+
+  const handleStatusChange = async (e) => {
+    const newStatus = e.target.value;
+    setCurrentStatus(newStatus);
+    try {
+      const updatedTask = await updateTask({ ...task, Status: newStatus });
+      console.log('Task updated successfully:', updatedTask);
+      toast({
+        title: "Status updated",
+        description: `Task status changed to ${newStatus}`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      if (onTasksUpdate) onTasksUpdate();
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: "Error updating status",
+        description: "There was an error updating the task status.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
 
   const fetchOwnerName = async (ownerId) => {
     if (!ownerId) {
@@ -53,22 +144,19 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
 
     try {
       console.log('Fetching owner name for ID:', ownerId);
-      console.log('PAT:', import.meta.env.VITE_AIRTABLE_PAT ? 'Set' : 'Not set');
-      console.log('Base ID:', import.meta.env.VITE_AIRTABLE_BASE_ID);
-      console.log('Team Table ID:', import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID);
+      const url = `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}/${ownerId}`;
+      console.log('Request URL:', url);
 
-      const response = await axios.get(
-        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}/${ownerId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
-          },
-        }
-      );
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
+        },
+      });
 
       if (response.data && response.data.fields && response.data.fields.Name) {
         setOwnerName(response.data.fields.Name);
       } else {
+        console.log('Unexpected response structure:', response.data);
         setOwnerName('Unknown');
       }
     } catch (error) {
@@ -79,9 +167,11 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
   };
 
   useEffect(() => {
-    if (task && task.AssignedOwner && task.AssignedOwner.length > 0) {
+    fetchOwners(); // Fetch all owners when the component mounts
+
+    if (task && task.AssignedOwner && task.AssignedOwner.length > 0 && task.AssignedOwner[0] !== ownerName) {
       fetchOwnerName(task.AssignedOwner[0]);
-    } else {
+    } else if (!task || !task.AssignedOwner || task.AssignedOwner.length === 0) {
       setOwnerName('Unassigned');
     }
 
@@ -90,6 +180,69 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
       setOwnerName(''); // Reset owner name when component unmounts
     };
   }, [task]);
+
+  const handleDescriptionChange = (e) => {
+    const newDescription = e.target.value;
+    setEditedTask(prev => ({ ...prev, Description: newDescription }));
+    setIsChanged(true);
+  };
+
+  const handleNameChange = (e) => {
+    const newName = e.target.value;
+    setEditedTask(prev => ({ ...prev, Name: newName }));
+    setIsChanged(true);
+  };
+
+  const [owners, setOwners] = useState([]);
+
+  const fetchOwners = async () => {
+    try {
+      const response = await axios.get(
+        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
+          },
+        }
+      );
+      setOwners(response.data.records.map(record => ({
+        id: record.id,
+        name: record.fields.Name
+      })));
+    } catch (error) {
+      console.error('Error fetching owners:', error);
+    }
+  };
+
+  // Add this function
+  const getStatusColor = (status) => {
+    const statusColors = {
+      planned: "blue.100",
+      "awaiting approval": "yellow.100",
+      "in progress": "green.100",
+      reviewing: "purple.100",
+      completed: "teal.100",
+      "on hold": "orange.100",
+      cancelled: "red.100",
+      blocked: "gray.100"
+    };
+    return statusColors[status.toLowerCase()] || "gray.100";
+  };
+
+  const handleOwnerChange = (newOwnerId) => {
+    // Check if newOwnerId is an object (event) or a string (ID)
+    const ownerId = typeof newOwnerId === 'object' ? newOwnerId.target.value : newOwnerId;
+
+    setEditedTask(prev => ({ ...prev, AssignedOwner: ownerId ? [ownerId] : [] }));
+    setIsChanged(true);
+
+    // Fetch and update the owner name
+    if (ownerId) {
+      fetchOwnerName(ownerId);
+    } else {
+      setOwnerName('Unassigned');
+    }
+  };
 
   return (
     <Modal
@@ -119,44 +272,92 @@ const TaskModal = ({ isOpen, onClose, task, getStatusColor }) => {
                 <Box flex="2" pr={5}>
                   <VStack align="stretch" spacing={4}>
                     <Box>
-                      <Heading as="h2" size="lg" mb={2}>{task.Name}</Heading>
+                      {editMode ? (
+                        <Input
+                          value={editedTask.Name || ''}
+                          onChange={handleNameChange}
+                          placeholder="Enter task name"
+                          size="lg"
+                          fontWeight="bold"
+                          mb={2}
+                        />
+                      ) : (
+                        <Heading as="h2" size="lg" mb={2}>{task.Name}</Heading>
+                      )}
                     </Box>
                     <Box>
                       <Heading as="h4" size="md" mb={2}>Description</Heading>
-                      <Text>{task.Description}</Text>
+                      {editMode ? (
+                        <Textarea
+                          value={editedTask.Description || ''}
+                          onChange={handleDescriptionChange}
+                          placeholder="Enter task description"
+                          rows={5}
+                          resize="vertical"
+                        />
+                      ) : (
+                        <Text>{task.Description}</Text>
+                      )}
                     </Box>
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Due Date</Heading>
-                      <Text>{formatDate(task.DueDate)}</Text>
+                      {editMode ? (
+                        <Input
+                          type="date"
+                          value={editedTask.DueDate || ''}
+                          onChange={handleDateChange}
+                        />
+                      ) : (
+                        <Text>{formatDate(editedTask.DueDate)}</Text>
+                      )}
                     </Box>
                   </VStack>
                 </Box>
                 {/* Right column (1/3 width) */}
                 <Box flex="1" pl={4} borderLeft="1px" borderColor="gray.200">
                   <VStack align="stretch" spacing={4}>
-                    <Box>
-                      <Badge
-                        colorScheme={getStatusColor(task.Status)}
-                        fontSize="sm"
-                        px={2}
-                        py={1}
-                        borderRadius="full"
-                      >
-                        {task.Status}
-                      </Badge>
+                  <Box>
+                    <StatusSelect
+                      value={currentStatus}
+                      onChange={handleStatusChange}
+                      getStatusColor={getStatusColor}
+                    />
                     </Box>
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Client: {task.Client}</Heading>
-                      <Heading as="h4" size="sm" mb={2}>Owner: {task.AssignedOwner ? task.AssignedOwner[0] : 'Unassigned'}</Heading>
-                      <Heading as="h4" size="sm" mb={2}>Owner: {ownerName}</Heading>
-                      <Text></Text>
+                    </Box>
+                    <Box>
+                      <Heading as="h4" size="sm" mb={2}>Owner: </Heading>
+                      <OwnerSelect 
+                        value={editedTask.AssignedOwner ? editedTask.AssignedOwner[0] : ''}
+                        onChange={handleOwnerChange}
+                        owners={owners}
+                        isEditable={editMode}
+                      />
                     </Box>
                   </VStack>
                 </Box>
               </Flex>
 
             </ModalBody>
-            <ModalFooter></ModalFooter>
+            <ModalFooter>
+              {!editMode && (
+                <Button leftIcon={<EditIcon />} onClick={handleEditClick} mr={3}>
+                  Edit
+                </Button>
+              )}
+              {editMode && (
+                <Button
+                  colorScheme="blue"
+                  onClick={handleSave}
+                  isDisabled={!isChanged}
+                  mr={3}
+                >
+                  Save
+                </Button>
+              )}
+              <Button onClick={onClose}>Close</Button>
+            </ModalFooter>
           </>
         ) : (
           <>

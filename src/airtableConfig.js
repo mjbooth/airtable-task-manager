@@ -65,8 +65,10 @@ export const fetchTasks = async () => {
 
   export const updateClientStatus = async (clientId, newStatus) => {
     try {
+      // Capitalize the first letter of each word in the status
+      const formattedStatus = newStatus.replace(/\b\w/g, l => l.toUpperCase());
       const updatedRecord = await base('Clients').update(clientId, {
-        Status: newStatus,
+        Status: formattedStatus,
       });
       return updatedRecord;
     } catch (error) {
@@ -74,3 +76,30 @@ export const fetchTasks = async () => {
       throw error;
     }
   };
+
+  export const updateTask = async (task) => {
+    if (!taskTable) {
+      console.error('Task table is not configured properly.');
+      throw new Error('Task table is not configured properly.');
+    }
+  
+    try {
+      const updatedRecord = await taskTable.update(task.id, {
+        Name: task.Name,
+        Description: task.Description,
+        Status: task.Status,
+        DueDate: task.DueDate,
+        Client: task.Client,
+        Priority: task.Priority,
+        AssignedOwner: task.AssignedOwner
+      });
+  
+      return {
+        id: updatedRecord.id,
+        ...updatedRecord.fields
+      };
+    } catch (error) {
+      console.error('Error updating task:', error);
+      throw error;
+    }
+  }; 

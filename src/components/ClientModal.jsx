@@ -127,7 +127,8 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                       <VStack align="start" spacing={4}>
                         <Heading as="h5" size="sm">{task.Name}</Heading>
                         <Badge
-                          colorScheme={getStatusColor(task.Status)}
+                          bg={getStatusColor(task.Status)} 
+                          color="black"
                           fontSize="x-small"
                           px={2}
                           py={1}
