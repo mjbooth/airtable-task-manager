@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import StatusSelect from './StatusSelect';
+import ClientSelect from './ClientSelect';
+import OwnerSelect from './OwnerSelect';
 import axios from 'axios';
 import {
   Modal,
@@ -30,9 +32,8 @@ import {
 } from '@chakra-ui/react';
 import { ChevronRightIcon, EditIcon } from '@chakra-ui/icons';
 import { updateTask } from '../airtableConfig';
-import OwnerSelect from './OwnerSelect';
 
-const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) => {
+const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) => {
   const toast = useToast();
   const [editMode, setEditMode] = useState(false);
   const [editedTask, setEditedTask] = useState(task);
@@ -59,6 +60,24 @@ const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) 
 
   const handleEditClick = () => {
     setEditMode(true);
+  };
+
+  const [clients, setClients] = useState([]);
+
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get(
+        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_CLIENT_TABLE_ID}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
+          },
+        }
+      );
+      setClients(response.data.records.map(record => record.fields.Client));
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
   };
 
   const handleDateChange = (e) => {
@@ -167,7 +186,8 @@ const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) 
   };
 
   useEffect(() => {
-    fetchOwners(); // Fetch all owners when the component mounts
+    fetchOwners();  // Fetch all owners when the component mounts
+    fetchClients();  // Fetch all clients when the component mounts
 
     if (task && task.AssignedOwner && task.AssignedOwner.length > 0 && task.AssignedOwner[0] !== ownerName) {
       fetchOwnerName(task.AssignedOwner[0]);
@@ -180,6 +200,12 @@ const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) 
       setOwnerName(''); // Reset owner name when component unmounts
     };
   }, [task]);
+
+  const handleClientChange = (newClient) => {
+    const clientName = typeof newClient === 'object' ? newClient.target.value : newClient;
+    setEditedTask(prev => ({ ...prev, Client: clientName }));
+    setIsChanged(true);
+  };
 
   const handleDescriptionChange = (e) => {
     const newDescription = e.target.value;
@@ -253,20 +279,18 @@ const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) 
       onOverlayClick={handleTaskModalClose}
     >
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxHeight="80vh">
         {task ? (
           <>
             <ModalHeader>
               <Breadcrumb spacing='8px' separator={<ChevronRightIcon color='gray.500' />}>
                 <BreadcrumbItem>
-                  <BreadcrumbLink onClick={() => onOpenClientModal(task.Client)}>
-                    {task.Client}
-                  </BreadcrumbLink>
+                  <BreadcrumbLink onClick={() => onOpenClientModal(task.Client)}>{task.Client}</BreadcrumbLink>
                 </BreadcrumbItem>
               </Breadcrumb>
             </ModalHeader>
             <ModalCloseButton onClick={handleTaskModalClose} />
-            <ModalBody>
+            <ModalBody overflowY="auto">
               <Flex>
                 {/* Left column (2/3 width) */}
                 <Box flex="2" pr={5}>
@@ -324,7 +348,13 @@ const TaskModal = ({ isOpen, onClose, task, onTasksUpdate, onOpenClientModal }) 
                     />
                     </Box>
                     <Box>
-                      <Heading as="h4" size="sm" mb={2}>Client: {task.Client}</Heading>
+                      <Heading as="h4" size="sm" mb={2}>Client: </Heading>
+                      <ClientSelect 
+                        value={editedTask.Client || ''}
+                        onChange={handleClientChange}
+                        clients={clients}
+                        isEditable={editMode}
+                      />
                     </Box>
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Owner: </Heading>
