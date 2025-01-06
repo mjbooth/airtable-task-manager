@@ -191,95 +191,110 @@ const TaskList = () => {
           />
         </FormControl>
       </Flex>
-      <HStack spacing={4} overflowX="auto" alignItems="stretch" height="calc(100% - 40px)">
-        {sortedGroupedTasks.map(([lifecycleStage, clientTasks]) => (
-            <Box 
-            key={lifecycleStage} 
-            width="400px" 
-            bg="gray.50"
-            p={4}
-            borderRadius="lg"
-            height="100%"
-            overflowY="auto"
-          >
-            <Heading as="h3" size="md" mb={4} textAlign="left">{lifecycleStage}</Heading>
-            <VStack spacing={4} align="stretch">
-              {Object.entries(clientTasks).map(([clientName, tasks]) => (
-                <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="sm">
-                  <Accordion allowMultiple>
-                    <AccordionItem border="none">
-                      <Flex alignItems="center">
-                        <AccordionButton flex="1">
-                          <Box flex="1" textAlign="left">
-                            <Heading as="h4" size="sm">{clientName}</Heading>
-                          </Box>
-                          <AccordionIcon />
-                        </AccordionButton>
-                        <IconButton
-                          aria-label="Open client details"
-                          icon={<BsThreeDots />}
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClientClick(clientName);
-                          }}
-                          mr={2}
-                        />
-                      </Flex>
-                      <AccordionPanel pb={4}>
-                        <VStack spacing={4} align="stretch">
-                          {tasks.map(task => (
-                            <Box 
-                              key={task.id}
-                              p={3}
-                              borderWidth="1px"
-                              borderRadius="md"
-                              bg="gray.50"
-                              onClick={() => handleTaskClick(task)}
-                              cursor="pointer"
-                              _hover={{ bg: "gray.100" }}
-                            >
-                              <VStack align="start" spacing={4}>
-                                <Flex justify="space-between" width="100%" alignItems="center">
-                                  <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
-                                  <Badge 
-                                    bg={getStatusColor(task.Status)}
-                                    fontSize="x-small"
-                                    px={2}
-                                    py={1}
-                                    ml={1}
-                                    borderRadius="full"
-                                  >
-                                    {task.Status}
-                                  </Badge>
-                                </Flex>
-                                <Flex align="left" justify="space-between" width="100%">
-                                  <Tooltip label={task.Owner || 'Unassigned'}>
-                                    <Avatar 
-                                      size="xs" 
-                                      name={task.Owner || 'Unassigned'} 
-                                      bg={task.Owner ? "blue.500" : "gray.500"}
-                                      color="white"
-                                    />
-                                  </Tooltip>
-                                  {task.DueDate && (
-                                    <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
-                                  )}
-                                </Flex>
-                              </VStack>
+      <Box 
+        height="calc(100vh - 144px)" // Adjusted for top nav and padding
+        width="calc(100vw - 260px)" // Adjusted for left nav
+        position="absolute"
+        right="0"
+        paddingLeft="20px" // Add some padding on the left
+        overflowX="auto"
+        overflowY="hidden"
+      >
+        <HStack 
+          spacing={4}
+          alignItems="stretch"
+          height="100%"
+        >
+          {sortedGroupedTasks.map(([lifecycleStage, clientTasks]) => (
+              <Box 
+              key={lifecycleStage} 
+              width="460px" 
+              bg="gray.50"
+              p={4}
+              borderRadius="lg"
+              height="100%"
+              overflowY="auto" // This enables vertical scrolling for each column
+              flexShrink={0} // Prevents the box from shrinking
+            >
+              <Heading as="h3" size="md" mb={4} textAlign="left">{lifecycleStage}</Heading>
+              <VStack spacing={4} align="stretch">
+                {Object.entries(clientTasks).map(([clientName, tasks]) => (
+                  <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="sm">
+                    <Accordion allowMultiple>
+                      <AccordionItem border="none">
+                        <Flex alignItems="center">
+                          <AccordionButton flex="1">
+                            <Box flex="1" textAlign="left">
+                              <Heading as="h4" size="sm">{clientName}</Heading>
                             </Box>
-                          ))}
-                        </VStack>
-                      </AccordionPanel>
-                    </AccordionItem>
-                  </Accordion>
-                </Box>
-              ))}
-            </VStack>
-          </Box>
-        ))}
-      </HStack>
+                            <AccordionIcon />
+                          </AccordionButton>
+                          <IconButton
+                            aria-label="Open client details"
+                            icon={<BsThreeDots />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClientClick(clientName);
+                            }}
+                            mr={2}
+                          />
+                        </Flex>
+                        <AccordionPanel pb={4}>
+                          <VStack spacing={4} align="stretch">
+                            {tasks.map(task => (
+                              <Box 
+                                key={task.id}
+                                p={3}
+                                borderWidth="1px"
+                                borderRadius="md"
+                                bg="gray.50"
+                                onClick={() => handleTaskClick(task)}
+                                cursor="pointer"
+                                _hover={{ bg: "gray.100" }}
+                              >
+                                <VStack align="start" spacing={4}>
+                                  <Flex justify="space-between" width="100%" alignItems="center">
+                                    <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
+                                    <Badge 
+                                      bg={getStatusColor(task.Status)}
+                                      fontSize="x-small"
+                                      px={2}
+                                      py={1}
+                                      ml={1}
+                                      borderRadius="full"
+                                    >
+                                      {task.Status}
+                                    </Badge>
+                                  </Flex>
+                                  <Flex align="left" justify="space-between" width="100%">
+                                    <Tooltip label={task.Owner || 'Unassigned'}>
+                                      <Avatar 
+                                        size="xs" 
+                                        name={task.Owner || 'Unassigned'} 
+                                        bg={task.Owner ? "blue.500" : "gray.500"}
+                                        color="white"
+                                      />
+                                    </Tooltip>
+                                    {task.DueDate && (
+                                      <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
+                                    )}
+                                  </Flex>
+                                </VStack>
+                              </Box>
+                            ))}
+                          </VStack>
+                        </AccordionPanel>
+                      </AccordionItem>
+                    </Accordion>
+                  </Box>
+                ))}
+              </VStack>
+            </Box>
+          ))}
+        </HStack>
+      </Box>
       {selectedClient && (
         <ClientModal
           isOpen={isClientModalOpen}

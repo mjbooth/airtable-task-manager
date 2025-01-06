@@ -34,7 +34,7 @@ const TopNavBar = ({ onNewClient, onNewTask }) => {
     <Box bg="white" boxShadow="sm" py={2} px={4}>
       <Flex alignItems="center">
         <Image
-          src="/src/img/CreateTOTALLY_symbol.png" // Replace with your actual logo path
+          src="/images/CreateTOTALLY_symbol.png" // Replace with your actual logo path
           alt="Brand Logo"
           boxSize="30px"
           mr={4}
