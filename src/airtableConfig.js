@@ -65,12 +65,16 @@ export const fetchTasks = async () => {
 
   export const updateClientStatus = async (clientId, newStatus) => {
     try {
-      // Capitalize the first letter of each word in the status
-      const formattedStatus = newStatus.replace(/\b\w/g, l => l.toUpperCase());
-      const updatedRecord = await base('Clients').update(clientId, {
-        Status: formattedStatus,
+      const updatedRecord = await clientTable.update(clientId, {
+        Status: newStatus,
       });
-      return updatedRecord;
+      return {
+        id: updatedRecord.id,
+        name: updatedRecord.get('Name'),
+        Status: updatedRecord.get('Status'),
+        lastUpdated: updatedRecord.get('Last Modified'),
+        // Add any other fields you need
+      };
     } catch (error) {
       console.error('Error updating client status:', error);
       throw error;

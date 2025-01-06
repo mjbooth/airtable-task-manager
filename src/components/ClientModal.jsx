@@ -15,6 +15,7 @@ import {
   Divider,
   Flex,
   Text,
+  useToast,
 } from '@chakra-ui/react';
 import { format } from 'date-fns';
 import EditableClientStatus from './EditableClientStatus';
@@ -33,14 +34,17 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(isOpen);
+  const [localClient, setLocalClient] = useState(client);
+  const toast = useToast();
 
   useEffect(() => {
     setIsClientModalOpen(isOpen);
-  }, [isOpen]);
+    setLocalClient(client);
+  }, [isOpen, client]);
 
   useEffect(() => {
-    console.log('ClientModal rendered', { isOpen, client, tasks });
-  }, [isOpen, client, tasks]);
+    console.log('ClientModal props:', { isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate });
+  }, [isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No update time available';
@@ -64,6 +68,40 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
     onClose();
   };
 
+  const handleStatusUpdate = async (newStatus) => {
+    if (typeof onStatusUpdate === 'function') {
+      try {
+        const updatedClient = await onStatusUpdate(localClient.id, newStatus);
+        setLocalClient(updatedClient);
+        toast({
+          title: "Status Updated",
+          description: "The client status has been successfully updated.",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        console.error('Error updating client status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update client status. Please try again.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } else {
+      console.error('onStatusUpdate is not a function', onStatusUpdate);
+      toast({
+        title: "Error",
+        description: "Unable to update status. Please try again later.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const sortTasks = (tasksToSort) => {
     return [...tasksToSort].sort((a, b) => {
       switch (sortMethod) {
@@ -79,7 +117,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
     });
   };
 
-  if (!client) {
+  if (!localClient) {
     return null;
   }
 
@@ -104,9 +142,9 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                   <Text fontSize="sm" color="gray.600">Last update: {formatDate(client.lastUpdated)}</Text>
                 </Flex>
                 <EditableClientStatus
-                  status={client.status} // Pass the original string status
-                  displayStatus={convertNewlinesToBreaks(client.status)} // Pass the formatted status for display
-                  onStatusUpdate={(newStatus) => onStatusUpdate(client.id, newStatus)}
+                  status={localClient.Status}
+                  displayStatus={localClient.Status}
+                  onStatusUpdate={handleStatusUpdate}
                 />
               </Box>
               <Divider orientation='horizontal' />

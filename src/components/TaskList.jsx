@@ -176,6 +176,21 @@ const TaskList = () => {
     setIsTaskModalOpen(false);  // Close the task modal
   };
 
+  const handleClientStatusUpdate = async (clientId, newStatus) => {
+    try {
+      const updatedClient = await updateClientStatus(clientId, newStatus);
+      // Update the clients state with the new data
+      setClients(prevClients => 
+        prevClients.map(client => 
+          client.id === clientId ? updatedClient : client
+        )
+      );
+      return updatedClient;
+    } catch (error) {
+      console.error('Error updating client status:', error);
+      throw error;
+    }
+  };
 
   return (
     <Box width="100%" maxWidth="100%">
@@ -276,14 +291,15 @@ const TaskList = () => {
         ))}
       </HStack>
       {selectedClient && (
-        <ClientModal
-          isOpen={isClientModalOpen}
-          onClose={() => setIsClientModalOpen(false)}
-          client={selectedClient}
-          tasks={tasks.filter(task => task.Client === selectedClient.name)}
-          getStatusColor={getStatusColor}
-        />
-      )}
+      <ClientModal
+        isOpen={isClientModalOpen}
+        onClose={() => setIsClientModalOpen(false)}
+        client={clients.find(c => c.id === selectedClient.id)}
+        tasks={tasks.filter(task => task.Client === selectedClient.name)}
+        getStatusColor={getStatusColor}
+        onStatusUpdate={handleClientStatusUpdate}
+      />
+        )}
       {selectedTask && (
         <TaskModal
           isOpen={isTaskModalOpen}
