@@ -16,6 +16,10 @@ import {
   Flex,
   Text,
   useToast,
+  HStack,
+  Tag,
+  TagLabel,
+  TagCloseButton,
 } from '@chakra-ui/react';
 import { format } from 'date-fns';
 import EditableClientStatus from './EditableClientStatus';
@@ -36,6 +40,8 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
   const [isClientModalOpen, setIsClientModalOpen] = useState(isOpen);
   const [localClient, setLocalClient] = useState(client);
   const toast = useToast();
+  const [activeStatuses, setActiveStatuses] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
 
   useEffect(() => {
     setIsClientModalOpen(isOpen);
@@ -45,6 +51,15 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
   useEffect(() => {
     console.log('ClientModal props:', { isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate });
   }, [isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate]);
+
+  useEffect(() => {
+    if (tasks) {
+      const statuses = [...new Set(tasks.map(task => task.Status))];
+      setActiveStatuses(statuses.filter(status => status !== "Completed"));
+      const filteredAndSortedTasks = sortTasksByDueDate(tasks.filter(task => task.Status !== "Completed"));
+      setFilteredTasks(filteredAndSortedTasks);
+    }
+  }, [tasks]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No update time available';
@@ -101,19 +116,25 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
       });
     }
   };
+  
+  const handleStatusFilter = (status) => {
+    let newActiveStatuses;
+    if (activeStatuses.includes(status)) {
+      newActiveStatuses = activeStatuses.filter(s => s !== status);
+    } else {
+      newActiveStatuses = [...activeStatuses, status];
+    }
+    setActiveStatuses(newActiveStatuses);
+    
+    const newFilteredTasks = sortTasksByDueDate(tasks.filter(task => newActiveStatuses.includes(task.Status)));
+    setFilteredTasks(newFilteredTasks);
+  };
 
-  const sortTasks = (tasksToSort) => {
+  const sortTasksByDueDate = (tasksToSort) => {
     return [...tasksToSort].sort((a, b) => {
-      switch (sortMethod) {
-        case 'dueDate':
-          return new Date(a.DueDate) - new Date(b.DueDate);
-        case 'status':
-          return a.Status.localeCompare(b.Status);
-        case 'name':
-          return a.Name.localeCompare(b.Name);
-        default:
-          return 0;
-      }
+      if (!a.DueDate) return 1;  // Tasks without due date go to the end
+      if (!b.DueDate) return -1; // Tasks without due date go to the end
+      return new Date(a.DueDate) - new Date(b.DueDate);
     });
   };
 
@@ -150,8 +171,43 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
               <Divider orientation='horizontal' />
               <Box>
                 <Heading as="h4" size="md" mb={2}>Tasks</Heading>
-                <VStack align="stretch" spacing={4}>
-                  {tasks && tasks.length > 0 ? tasks.map(task => (
+                <HStack spacing={2} mb={4} wrap="wrap">
+                  {/* Completed status tag (always first) */}
+                  <Tag
+                    key="Completed"
+                    size="md"
+                    borderRadius="full"
+                    variant={activeStatuses.includes("Completed") ? "solid" : "outline"}
+                    bg={activeStatuses.includes("Completed") ? `status.completed` : "transparent"}
+                    color={activeStatuses.includes("Completed") ? "black" : `status.completed`}
+                    borderColor={`status.completed`}
+                    cursor="pointer"
+                    onClick={() => handleStatusFilter("Completed")}
+                  >
+                    <TagLabel>Completed</TagLabel>
+                  </Tag>
+
+                  {/* Other status tags */}
+                  {tasks && [...new Set(tasks.map(task => task.Status))]
+                    .filter(status => status !== "Completed")
+                    .map(status => (
+                      <Tag
+                        key={status}
+                        size="md"
+                        borderRadius="full"
+                        variant={activeStatuses.includes(status) ? "solid" : "outline"}
+                        bg={activeStatuses.includes(status) ? `status.${status.toLowerCase().replace(/\s+/g, '')}` : "transparent"}
+                        color={activeStatuses.includes(status) ? "black" : `status.${status.toLowerCase().replace(/\s+/g, '')}`}
+                        borderColor={`status.${status.toLowerCase().replace(/\s+/g, '')}`}
+                        cursor="pointer"
+                        onClick={() => handleStatusFilter(status)}
+                      >
+                        <TagLabel>{status}</TagLabel>
+                      </Tag>
+                    ))}
+                </HStack>
+                <VStack align="stretch" spacing={4}> 
+                  {filteredTasks && filteredTasks.length > 0 ? filteredTasks.map(task => (
                     <Box
                       key={task.id}
                       p={3}

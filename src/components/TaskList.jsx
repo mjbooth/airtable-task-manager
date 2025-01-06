@@ -19,11 +19,11 @@ import {
   IconButton,
 } from '@chakra-ui/react';
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
-import { InfoIcon, ArrowForwardIcon } from '@chakra-ui/icons';
 import { BsThreeDots } from 'react-icons/bs';
 import { fetchTasks, fetchClients, updateClientStatus, updateTask } from '../airtableConfig';
 import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
+import { useTheme } from '@chakra-ui/react';
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([]);
@@ -37,6 +37,8 @@ const TaskList = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0);
+
+  const theme = useTheme();
 
   const getData = useCallback(async () => {
     setLoading(true);
@@ -105,12 +107,9 @@ const TaskList = () => {
   }, [isTaskModalOpen]);
 
   const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'completed': return 'green';
-      case 'in progress': return 'yellow';
-      case 'not started': return 'red';
-      default: return 'gray';
-    }
+    if (!status) return theme.colors.gray[200];
+    const key = status.toLowerCase().replace(/\s+/g, '');
+    return theme.colors.status[key] || theme.colors.gray[200];
   };
 
   const getClientInfo = (clientName) => {
@@ -241,7 +240,7 @@ const TaskList = () => {
                                 <Flex justify="space-between" width="100%" alignItems="center">
                                   <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
                                   <Badge 
-                                    colorScheme={getStatusColor(task.Status)} 
+                                    bg={getStatusColor(task.Status)}
                                     fontSize="x-small"
                                     px={2}
                                     py={1}
