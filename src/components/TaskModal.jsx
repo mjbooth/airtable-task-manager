@@ -39,6 +39,112 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
   const [editedTask, setEditedTask] = useState(task || {});
   const [isChanged, setIsChanged] = useState(false);
 
+  const handleChange = (field, value) => {
+    setEditedTask(prev => ({ ...prev, [field]: value }));
+    setIsChanged(true);
+  };
+
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    handleChange('DueDate', newDate);
+  };
+
+  const handleNameChange = (e) => {
+    handleChange('Name', e.target.value);
+  };
+
+  const handleDescriptionChange = (e) => {
+    handleChange('Description', e.target.value);
+  };
+
+  const handleStatusChange = (newStatus) => {
+    handleChange('Status', newStatus);
+  };
+
+  const handleClientChange = (newClient) => {
+    const clientName = typeof newClient === 'object' ? newClient.target.value : newClient;
+    handleChange('Client', clientName);
+  };
+
+  const handleSave = async () => {
+    try {
+      // Create a new object with only the fields that Airtable expects
+      const taskToSave = {
+        id: editedTask.id,
+        Name: editedTask.Name,
+        Description: editedTask.Description,
+        Status: editedTask.Status,
+        DueDate: editedTask.DueDate,
+        Client: editedTask.Client,
+        Priority: editedTask.Priority,
+        // Only include AssignedOwner if it exists and is not empty
+        ...(editedTask.AssignedOwner && editedTask.AssignedOwner.length > 0 
+          ? { AssignedOwner: editedTask.AssignedOwner } 
+          : {})
+      };
+
+      let updatedTask;
+      if (isNewTask) {
+        updatedTask = await createTask(taskToSave);
+      } else {
+        updatedTask = await updateTask(taskToSave);
+      }
+
+      console.log('Airtable response:', JSON.stringify(updatedTask, null, 2));
+
+      // Create a new object that combines the Airtable response with any local changes
+      const updatedTaskData = {
+        ...editedTask,  // Include any local changes
+        ...updatedTask.fields,  // Overwrite with the response from Airtable
+        id: updatedTask.id
+      };
+
+      console.log('Updated task data:', JSON.stringify(updatedTaskData, null, 2));
+
+      // Fetch the owner name if it exists
+      if (updatedTaskData.AssignedOwner && updatedTaskData.AssignedOwner.length > 0) {
+        await fetchOwnerName(updatedTaskData.AssignedOwner[0]);
+      }
+
+      toast({
+        title: isNewTask ? "Task created" : "Task updated",
+        description: isNewTask ? "The new task has been created." : "The task has been successfully updated.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      setIsChanged(false);
+
+      setEditedTask(updatedTaskData); // Ensure local state is up-to-date
+      if (onTasksUpdate) {
+        onTasksUpdate(updatedTaskData); // Pass updated data to parent
+      }      
+
+      // Reset the edit mode
+      setEditMode(false);
+
+      // Force a re-render of the component
+      setEditedTask({...updatedTaskData});
+    } catch (error) {
+      console.error(isNewTask ? 'Error creating task:' : 'Error updating task:', error);
+      // Log the error response if available
+      if (error.response) {
+        console.error('Error response:', JSON.stringify(error.response.data, null, 2));
+      }
+      toast({
+        title: isNewTask ? "Error creating task" : "Error updating task",
+        description: "There was an error. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+
+  ////
+
   useEffect(() => {
     if (isNewTask) {
       const currentDate = new Date();
@@ -60,7 +166,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
       setEditMode(false);
     }
     setIsChanged(false);
-  }, [task, isNewTask]);
+  }, [task, isNewTask, isOpen]); // Include `isOpen` to reinitialize on open  
 
   const [clients, setClients] = useState([]);
 
@@ -86,47 +192,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
     return format(date, "MMMM d, yyyy");
   };
 
-  const handleDateChange = (e) => {
-    const newDate = e.target.value;
-    setEditedTask(prev => ({ ...prev, DueDate: newDate }));
-    setIsChanged(true);
-  };
-
-  const handleSave = async () => {
-    try {
-      let updatedTask;
-      if (isNewTask) {
-        updatedTask = await createTask(editedTask);
-      } else {
-        updatedTask = await updateTask({
-          ...editedTask,
-          AssignedOwner: editedTask.AssignedOwner || []
-        });
-      }
-      console.log(isNewTask ? 'Task created successfully:' : 'Task updated successfully:', updatedTask);
-      toast({
-        title: isNewTask ? "Task created" : "Task updated",
-        description: isNewTask ? "The new task has been created." : "The task has been successfully updated.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-      setIsChanged(false);
-      setEditMode(false);
-      if (onTasksUpdate) onTasksUpdate();
-      onClose();
-    } catch (error) {
-      console.error(isNewTask ? 'Error creating task:' : 'Error updating task:', error);
-      toast({
-        title: isNewTask ? "Error creating task" : "Error updating task",
-        description: "There was an error. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
   const [ownerName, setOwnerName] = useState('');
 
   const handleTaskModalClose = () => {
@@ -140,16 +205,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
   }, []);
 
   const [currentStatus, setCurrentStatus] = useState(task ? task.Status : '');
-
-  const handleStatusChange = (newStatus) => {
-    if (isNewTask) {
-      setEditedTask(prev => ({ ...prev, Status: newStatus }));
-      setIsChanged(true);
-    } else {
-      setCurrentStatus(newStatus);
-      updateExistingTaskStatus(newStatus);
-    }
-  };
   
   const updateExistingTaskStatus = async (newStatus) => {
     try {
@@ -220,24 +275,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
       setOwnerName(''); // Reset owner name when component unmounts
     };
   }, [task]);
-
-  const handleClientChange = (newClient) => {
-    const clientName = typeof newClient === 'object' ? newClient.target.value : newClient;
-    setEditedTask(prev => ({ ...prev, Client: clientName }));
-    setIsChanged(true);
-  };
-
-  const handleDescriptionChange = (e) => {
-    const newDescription = e.target.value;
-    setEditedTask(prev => ({ ...prev, Description: newDescription }));
-    setIsChanged(true);
-  };
-
-  const handleNameChange = (e) => {
-    const newName = e.target.value;
-    setEditedTask(prev => ({ ...prev, Name: newName }));
-    setIsChanged(true);
-  };
 
   const [owners, setOwners] = useState([]);
 

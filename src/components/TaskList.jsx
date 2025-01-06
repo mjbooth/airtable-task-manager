@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   VStack, 
@@ -36,8 +36,9 @@ const TaskList = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
 
-  const getData = async () => {
+  const getData = useCallback(async () => {
     setLoading(true);
     try {
       const [fetchedTasks, fetchedClients] = await Promise.all([fetchTasks(), fetchClients()]);
@@ -52,11 +53,44 @@ const TaskList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const handleTaskUpdate = useCallback((updatedTask) => {
+    console.log('handleTaskUpdate called with:', updatedTask);
+  
+    setTasks(prevTasks => {
+      const newTasks = prevTasks.map(task => 
+        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+      );
+      console.log('Updated tasks:', newTasks);
+      return newTasks;
+    });
+  
+    // Update the selectedTask to reflect changes
+    setSelectedTask(prev => (prev && prev.id === updatedTask.id ? { ...prev, ...updatedTask } : prev));
+  
+    // Force a re-render by updating the updateTrigger
+    setUpdateTrigger(prev => prev + 1);
+  }, []);  
+
+  const handleClientStatusUpdate = useCallback(async (clientId, newStatus) => {
+    try {
+      const updatedClient = await updateClientStatus(clientId, newStatus);
+      setClients(prevClients => 
+        prevClients.map(client => 
+          client.id === clientId ? updatedClient : client
+        )
+      );
+      return updatedClient;
+    } catch (error) {
+      console.error('Error updating client status:', error);
+      throw error;
+    }
+  }, []);
 
   useEffect(() => {
     getData();
-  }, []);
+  }, [getData, updateTrigger]);
 
   useEffect(() => {
     if (!isClientModalOpen) {
@@ -117,53 +151,14 @@ const TaskList = () => {
     const client = clients.find(c => c.name === clientName);
     setSelectedClient(client);
     setIsClientModalOpen(true);
-    // Close the TaskModal if it's open
     if (isTaskModalOpen) {
       setIsTaskModalOpen(false);
-    }
-  };
-
-  const sortedGroupedTasks = Object.entries(groupedTasks).sort((a, b) => {
-    return lifecycleStageOrder.indexOf(a[0]) - lifecycleStageOrder.indexOf(b[0]);
-  });
-
-  if (loading) return <Spinner size="xl" />;
-  if (error) return <Text color="red.500">{error}</Text>;
-
-  const handleStatusChange = async (newStatus) => {
-    setCurrentStatus(newStatus);
-    try {
-      const updatedTask = await updateTask({ ...task, Status: newStatus });
-      console.log('Task updated successfully:', updatedTask);
-      
-      // Refresh the task list
-      const updatedTasks = await fetchTasks();
-      // If you have a function to update tasks in the parent component, call it here
-      // For example: onTasksUpdate(updatedTasks);
-      
-      toast({
-        title: "Task updated",
-        description: "The task status has been successfully updated.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      toast({
-        title: "Error updating task",
-        description: "There was an error updating the task status. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
     }
   };
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
     setIsTaskModalOpen(true);
-    // Close the ClientModal if it's open
     if (isClientModalOpen) {
       setIsClientModalOpen(false);
     }
@@ -173,24 +168,15 @@ const TaskList = () => {
     const client = clients.find(c => c.name === clientName);
     setSelectedClient(client);
     setIsClientModalOpen(true);
-    setIsTaskModalOpen(false);  // Close the task modal
+    setIsTaskModalOpen(false);
   };
 
-  const handleClientStatusUpdate = async (clientId, newStatus) => {
-    try {
-      const updatedClient = await updateClientStatus(clientId, newStatus);
-      // Update the clients state with the new data
-      setClients(prevClients => 
-        prevClients.map(client => 
-          client.id === clientId ? updatedClient : client
-        )
-      );
-      return updatedClient;
-    } catch (error) {
-      console.error('Error updating client status:', error);
-      throw error;
-    }
-  };
+  const sortedGroupedTasks = Object.entries(groupedTasks).sort((a, b) => {
+    return lifecycleStageOrder.indexOf(a[0]) - lifecycleStageOrder.indexOf(b[0]);
+  });
+
+  if (loading) return <Spinner size="xl" />;
+  if (error) return <Text color="red.500">{error}</Text>;
 
   return (
     <Box width="100%" maxWidth="100%">
@@ -291,15 +277,15 @@ const TaskList = () => {
         ))}
       </HStack>
       {selectedClient && (
-      <ClientModal
-        isOpen={isClientModalOpen}
-        onClose={() => setIsClientModalOpen(false)}
-        client={clients.find(c => c.id === selectedClient.id)}
-        tasks={tasks.filter(task => task.Client === selectedClient.name)}
-        getStatusColor={getStatusColor}
-        onStatusUpdate={handleClientStatusUpdate}
-      />
-        )}
+        <ClientModal
+          isOpen={isClientModalOpen}
+          onClose={() => setIsClientModalOpen(false)}
+          client={clients.find(c => c.id === selectedClient.id)}
+          tasks={tasks.filter(task => task.Client === selectedClient.name)}
+          getStatusColor={getStatusColor}
+          onStatusUpdate={handleClientStatusUpdate}
+        />
+      )}
       {selectedTask && (
         <TaskModal
           isOpen={isTaskModalOpen}
@@ -307,7 +293,7 @@ const TaskList = () => {
           task={selectedTask}
           getStatusColor={getStatusColor}
           onOpenClientModal={handleOpenClientModal}
-          onTasksUpdate={getData}
+          onTasksUpdate={handleTaskUpdate}
         />
       )}
     </Box>
