@@ -1,6 +1,5 @@
-import React from 'react';
-import { Menu, MenuButton, MenuList, MenuItem, Button, Box, useTheme } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
+import { Menu, MenuButton, MenuList, MenuItem, Button, Box, useTheme } from '@chakra-ui/react';
 
 const StatusSelect = ({ value, onChange }) => {
   const theme = useTheme();
@@ -18,6 +17,7 @@ const StatusSelect = ({ value, onChange }) => {
   ];
 
   const getStatusColor = (status) => {
+    if (!status) return theme.colors.gray[200];
     const key = status.toLowerCase().replace(/\s+/g, '');
     return statusColors[key] || theme.colors.gray[200];
   };
@@ -36,13 +36,13 @@ const StatusSelect = ({ value, onChange }) => {
         px={4}
         py={2}
       >
-        {value}
+        {value || 'Select Status'}
       </MenuButton>
       <MenuList borderRadius="md" boxShadow="lg">
         {options.map((option) => (
           <MenuItem 
             key={option} 
-            onClick={() => onChange({ target: { value: option } })}
+            onClick={() => onChange(option)}  // Changed this line
             bg={option === value ? `${getStatusColor(option)}40` : 'white'}
             _hover={{ bg: `${getStatusColor(option)}20` }}
             fontWeight={option === value ? "bold" : "normal"}

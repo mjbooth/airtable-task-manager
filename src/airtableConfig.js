@@ -103,3 +103,32 @@ export const fetchTasks = async () => {
       throw error;
     }
   }; 
+
+  export const createTask = async (task) => {
+    if (!taskTable) {
+      console.error('Task table is not configured properly.');
+      throw new Error('Task table is not configured properly.');
+    }
+  
+    try {
+      const createdRecord = await taskTable.create({
+        Name: task.Name,
+        Description: task.Description,
+        Status: task.Status,
+        DueDate: task.DueDate,
+        Client: task.Client,
+        Priority: task.Priority,
+        AssignedOwner: task.AssignedOwner
+      });
+  
+      console.log('Task created successfully:', createdRecord);
+  
+      return {
+        id: createdRecord.id,
+        ...createdRecord.fields
+      };
+    } catch (error) {
+      console.error('Error creating task:', error);
+      throw error;
+    }
+  };

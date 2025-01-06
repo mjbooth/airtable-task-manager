@@ -28,10 +28,10 @@ const OwnerSelect = ({ value, onChange, owners, isEditable = true }) => {
           <Text>{selectedOwner.name}</Text>
         </Flex>
       </MenuButton>
-      <MenuList>
+      <MenuList maxHeight="400px" overflowY="auto">
         <MenuItem onClick={() => onChange({ target: { value: '' } })}>
           <Flex align="center">
-            <Avatar size="sm" name="Unassigned" mr={2} />
+            <Avatar size="xs" name="Unassigned" mr={2} />
             <Text>Unassigned</Text>
           </Flex>
         </MenuItem>
@@ -41,7 +41,7 @@ const OwnerSelect = ({ value, onChange, owners, isEditable = true }) => {
             onClick={() => onChange({ target: { value: owner.id } })}
           >
             <Flex align="center">
-              <Avatar size="sm" name={owner.name} src={owner.avatar} mr={2} />
+              <Avatar size="xs" name={owner.name} src={owner.avatar} mr={2} />
               <Text>{owner.name}</Text>
             </Flex>
           </MenuItem>

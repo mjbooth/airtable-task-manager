@@ -31,36 +31,36 @@ import {
   Textarea,
 } from '@chakra-ui/react';
 import { ChevronRightIcon, EditIcon } from '@chakra-ui/icons';
-import { updateTask } from '../airtableConfig';
+import { updateTask, createTask } from '../airtableConfig';
 
-const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) => {
+const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, isNewTask = false }) => {
   const toast = useToast();
   const [editMode, setEditMode] = useState(false);
-  const [editedTask, setEditedTask] = useState(task);
+  const [editedTask, setEditedTask] = useState(task || {});
   const [isChanged, setIsChanged] = useState(false);
 
   useEffect(() => {
-    if (task) {
+    if (isNewTask) {
       const currentDate = new Date();
       const formattedDate = format(currentDate, "yyyy-MM-dd");
       setEditedTask({
-        ...task,
-        DueDate: task.DueDate || formattedDate
+        Name: '',
+        Description: '',
+        Status: 'Planned',
+        Client: '',
+        DueDate: formattedDate,
+        AssignedOwner: []
       });
+      setEditMode(true);
+    } else if (task) {
+      setEditedTask({
+        ...task,
+        DueDate: task.DueDate || format(new Date(), "yyyy-MM-dd")
+      });
+      setEditMode(false);
     }
     setIsChanged(false);
-    setEditMode(false);
-  }, [task]);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No date available';
-    const date = new Date(dateString);
-    return format(date, "MMMM d, yyyy");
-  };
-
-  const handleEditClick = () => {
-    setEditMode(true);
-  };
+  }, [task, isNewTask]);
 
   const [clients, setClients] = useState([]);
 
@@ -80,6 +80,12 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date available';
+    const date = new Date(dateString);
+    return format(date, "MMMM d, yyyy");
+  };
+
   const handleDateChange = (e) => {
     const newDate = e.target.value;
     setEditedTask(prev => ({ ...prev, DueDate: newDate }));
@@ -88,14 +94,19 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
 
   const handleSave = async () => {
     try {
-      const updatedTask = await updateTask({
-        ...editedTask,
-        AssignedOwner: editedTask.AssignedOwner || []
-      });
-      console.log('Task updated successfully:', updatedTask);
+      let updatedTask;
+      if (isNewTask) {
+        updatedTask = await createTask(editedTask);
+      } else {
+        updatedTask = await updateTask({
+          ...editedTask,
+          AssignedOwner: editedTask.AssignedOwner || []
+        });
+      }
+      console.log(isNewTask ? 'Task created successfully:' : 'Task updated successfully:', updatedTask);
       toast({
-        title: "Task updated",
-        description: "The task has been successfully updated.",
+        title: isNewTask ? "Task created" : "Task updated",
+        description: isNewTask ? "The new task has been created." : "The task has been successfully updated.",
         status: "success",
         duration: 3000,
         isClosable: true,
@@ -103,18 +114,19 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
       setIsChanged(false);
       setEditMode(false);
       if (onTasksUpdate) onTasksUpdate();
+      onClose();
     } catch (error) {
-      console.error('Error updating task:', error);
+      console.error(isNewTask ? 'Error creating task:' : 'Error updating task:', error);
       toast({
-        title: "Error updating task",
-        description: "There was an error updating the task. Please try again.",
+        title: isNewTask ? "Error creating task" : "Error updating task",
+        description: "There was an error. Please try again.",
         status: "error",
         duration: 3000,
         isClosable: true,
       });
     }
   };
-  
+
   const [ownerName, setOwnerName] = useState('');
 
   const handleTaskModalClose = () => {
@@ -129,9 +141,17 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
 
   const [currentStatus, setCurrentStatus] = useState(task ? task.Status : '');
 
-  const handleStatusChange = async (e) => {
-    const newStatus = e.target.value;
-    setCurrentStatus(newStatus);
+  const handleStatusChange = (newStatus) => {
+    if (isNewTask) {
+      setEditedTask(prev => ({ ...prev, Status: newStatus }));
+      setIsChanged(true);
+    } else {
+      setCurrentStatus(newStatus);
+      updateExistingTaskStatus(newStatus);
+    }
+  };
+  
+  const updateExistingTaskStatus = async (newStatus) => {
     try {
       const updatedTask = await updateTask({ ...task, Status: newStatus });
       console.log('Task updated successfully:', updatedTask);
@@ -186,8 +206,8 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
   };
 
   useEffect(() => {
-    fetchOwners();  // Fetch all owners when the component mounts
-    fetchClients();  // Fetch all clients when the component mounts
+    fetchOwners(); 
+    fetchClients();
 
     if (task && task.AssignedOwner && task.AssignedOwner.length > 0 && task.AssignedOwner[0] !== ownerName) {
       fetchOwnerName(task.AssignedOwner[0]);
@@ -270,6 +290,9 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
     }
   };
 
+  const handleEditClick = () => {
+    setEditMode(true);
+  };
   return (
     <Modal
       isOpen={isOpen}
@@ -283,11 +306,13 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
         {task ? (
           <>
             <ModalHeader>
-              <Breadcrumb spacing='8px' separator={<ChevronRightIcon color='gray.500' />}>
-                <BreadcrumbItem>
-                  <BreadcrumbLink onClick={() => onOpenClientModal(task.Client)}>{task.Client}</BreadcrumbLink>
-                </BreadcrumbItem>
-              </Breadcrumb>
+              {isNewTask ? "Create New Task" : (
+                <Breadcrumb spacing='8px' separator={<ChevronRightIcon color='gray.500' />}>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink onClick={() => onOpenClientModal(editedTask.Client)}>{editedTask.Client}</BreadcrumbLink>
+                  </BreadcrumbItem>
+                </Breadcrumb>
+              )}
             </ModalHeader>
             <ModalCloseButton onClick={handleTaskModalClose} />
             <ModalBody overflowY="auto">
@@ -340,16 +365,15 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
                 {/* Right column (1/3 width) */}
                 <Box flex="1" pl={4} borderLeft="1px" borderColor="gray.200">
                   <VStack align="stretch" spacing={4}>
-                  <Box>
+                    <Box>
                     <StatusSelect
-                      value={currentStatus}
+                      value={editMode ? editedTask.Status : currentStatus}
                       onChange={handleStatusChange}
-                      getStatusColor={getStatusColor}
                     />
                     </Box>
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Client: </Heading>
-                      <ClientSelect 
+                      <ClientSelect
                         value={editedTask.Client || ''}
                         onChange={handleClientChange}
                         clients={clients}
@@ -358,7 +382,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
                     </Box>
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Owner: </Heading>
-                      <OwnerSelect 
+                      <OwnerSelect
                         value={editedTask.AssignedOwner ? editedTask.AssignedOwner[0] : ''}
                         onChange={handleOwnerChange}
                         owners={owners}
@@ -368,7 +392,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
                   </VStack>
                 </Box>
               </Flex>
-
             </ModalBody>
             <ModalFooter>
               {!editMode && (
@@ -377,13 +400,8 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate }) 
                 </Button>
               )}
               {editMode && (
-                <Button
-                  colorScheme="blue"
-                  onClick={handleSave}
-                  isDisabled={!isChanged}
-                  mr={3}
-                >
-                  Save
+                <Button colorScheme="blue" mr={3} onClick={handleSave} isDisabled={!isChanged && !isNewTask}>
+                  {isNewTask ? "Create Task" : "Save Changes"}
                 </Button>
               )}
               <Button onClick={onClose}>Close</Button>
