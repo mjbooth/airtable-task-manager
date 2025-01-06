@@ -1,9 +1,12 @@
-import React from 'react';
-import { ChakraProvider, Box, VStack, Grid } from '@chakra-ui/react';
-import { ErrorBoundary } from 'react-error-boundary';
+import React, { useState } from 'react';
+import { ChakraProvider, Flex, Box, Button, Text } from '@chakra-ui/react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import LeftNavBar from './components/LeftNavBar';
 import TaskList from './components/TaskList';
+import TaskModal from './components/TaskModal';  // Import TaskModal
+import { FaPlus, FaSync } from 'react-icons/fa';
 import theme from './theme';
-import TopNavBar from './components/TopNavBar'; 
+import { ErrorBoundary } from 'react-error-boundary';
 
 function ErrorFallback({error}) {
   return (
@@ -13,27 +16,59 @@ function ErrorFallback({error}) {
     </Box>
   )
 }
+
 function App() {
-  const handleNewClient = () => {
-    // Logic for creating a new client
-    console.log('Creating new client');
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const handleNewTask = () => {
+    setIsTaskModalOpen(true);
   };
 
-  const handleNewTask = () => {
-    // Logic for creating a new task
-    console.log('Creating new task');
+  const handleTaskModalClose = () => {
+    setIsTaskModalOpen(false);
   };
+
+  const handleTaskSubmit = (taskData) => {
+    // Implement logic to save the new task
+    console.log('New task data:', taskData);
+    setIsTaskModalOpen(false);
+  };
+  const handleRefresh = () => {
+    // Implement refresh logic
+    console.log('Refreshing data');
+  };
+
   return (
     <ChakraProvider theme={theme}>
-      <TopNavBar onNewClient={handleNewClient} onNewTask={handleNewTask} />
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <Box textAlign="center" fontSize="xl">
-          <Grid minH="100vh" p={3}>
-            <VStack spacing={8}>
-              <TaskList />
-            </VStack>
-          </Grid>
-        </Box>
+        <Router>
+          <Flex>
+            <LeftNavBar />
+            <Box flex={1}>
+              <Flex justifyContent="flex-end" p={4}>
+                <Button leftIcon={<FaPlus />} colorScheme="gray" mr={2} onClick={handleNewTask}>
+                  Create
+                </Button>
+                <Button leftIcon={<FaSync />} colorScheme="gray" onClick={handleRefresh}>
+                  Refresh
+                </Button>
+              </Flex>
+              <Box p={4}>
+                <Routes>
+                  <Route path="/" element={<TaskList />} />
+                  <Route path="/tasks" element={<TaskList />} />
+                  {/* Add other routes for Deadlines, Contacts, Insights, and Settings */}
+                </Routes>
+              </Box>
+            </Box>
+          </Flex>
+        </Router>
+        <TaskModal
+          isOpen={isTaskModalOpen}
+          onClose={handleTaskModalClose}
+          onSave={handleTaskSubmit}
+          isNewTask={true}
+          task={{}}  // Pass an empty object for a new task
+        />
       </ErrorBoundary>
     </ChakraProvider>
   );

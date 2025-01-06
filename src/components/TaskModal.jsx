@@ -142,9 +142,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
     }
   };
 
-
-  ////
-
   useEffect(() => {
     if (isNewTask) {
       const currentDate = new Date();

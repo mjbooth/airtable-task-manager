@@ -178,11 +178,7 @@ const TaskList = () => {
   if (error) return <Text color="red.500">{error}</Text>;
 
   return (
-    <Box width="100%" maxWidth="100%">
-      <Flex justify="space-between" align="center" mb={4}>
-        <Heading as="h2" size="xl">Task Board</Heading>
-        <Button onClick={getData} colorScheme="blue">Refresh</Button>
-      </Flex>
+    <Box width="100%" maxWidth="100%" height="calc(100vh - 104px)">
       <Flex justify="space-between" align="center" mb={4}>
         <FormControl display="flex" alignItems="center">
           <FormLabel htmlFor="show-completed" mb="0">
@@ -195,13 +191,21 @@ const TaskList = () => {
           />
         </FormControl>
       </Flex>
-      <HStack spacing={4} overflowX="auto" alignItems="flex-start" pb={4}>
+      <HStack spacing={4} overflowX="auto" alignItems="stretch" height="calc(100% - 40px)">
         {sortedGroupedTasks.map(([lifecycleStage, clientTasks]) => (
-          <Box key={lifecycleStage} width="400px">
+            <Box 
+            key={lifecycleStage} 
+            width="400px" 
+            bg="gray.50"
+            p={4}
+            borderRadius="lg"
+            height="100%"
+            overflowY="auto"
+          >
             <Heading as="h3" size="md" mb={4} textAlign="left">{lifecycleStage}</Heading>
             <VStack spacing={4} align="stretch">
               {Object.entries(clientTasks).map(([clientName, tasks]) => (
-                <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="md">
+                <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="sm">
                   <Accordion allowMultiple>
                     <AccordionItem border="none">
                       <Flex alignItems="center">
@@ -244,6 +248,7 @@ const TaskList = () => {
                                     fontSize="x-small"
                                     px={2}
                                     py={1}
+                                    ml={1}
                                     borderRadius="full"
                                   >
                                     {task.Status}

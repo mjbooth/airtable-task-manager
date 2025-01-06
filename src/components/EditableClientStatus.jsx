@@ -9,6 +9,9 @@ import {
 } from '@chakra-ui/react';
 
 const convertNewlinesToBreaks = (text) => {
+  if (typeof text !== 'string' || text.trim() === '') {
+    return null;
+  }
   return text.split('\n').map((line, index) => (
     <React.Fragment key={index}>
       {line}
@@ -16,13 +19,14 @@ const convertNewlinesToBreaks = (text) => {
     </React.Fragment>
   ));
 };
+
 const EditableClientStatus = ({ status, displayStatus, onStatusUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedStatus, setEditedStatus] = useState(status);
+  const [editedStatus, setEditedStatus] = useState(status || '');
   const toast = useToast();
 
   useEffect(() => {
-    setEditedStatus(status);
+    setEditedStatus(status || '');
   }, [status]);
 
   const handleEdit = () => {
@@ -57,7 +61,7 @@ const EditableClientStatus = ({ status, displayStatus, onStatusUpdate }) => {
   };
 
   const handleCancel = () => {
-    setEditedStatus(status);
+    setEditedStatus(status || '');
     setIsEditing(false);
   };
 
@@ -79,8 +83,8 @@ const EditableClientStatus = ({ status, displayStatus, onStatusUpdate }) => {
         </Flex>
       ) : (
         <Flex justify="space-between" align="center">
-          <Text>{convertNewlinesToBreaks(displayStatus)}</Text>
-          <Button onClick={handleEdit} size="sm">
+          <Text>{convertNewlinesToBreaks(displayStatus) || 'No status just yet. Check back soon.'}</Text>
+          <Button onClick={handleEdit} size="sm" ml={4}>
             Edit
           </Button>
         </Flex>
