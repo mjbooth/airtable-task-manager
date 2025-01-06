@@ -17,7 +17,7 @@ const LeftNavBar = () => {
     >
       <VStack spacing={8} align="stretch">
         <Image
-          src="/src/img/CreateTOTALLY_symbol.png"
+          src="/images/CreateTOTALLY_symbol.png"
           alt="Brand Logo"
           boxSize="50px"
           alignSelf="left"
