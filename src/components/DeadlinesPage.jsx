@@ -15,12 +15,16 @@ import {
 import { format } from 'date-fns';
 import { fetchTasks, fetchClients } from '../airtableConfig';
 import axios from 'axios';
+import TaskModal from './TaskModal';
 
 const DeadlinesPage = () => {
     const [tasks, setTasks] = useState([]);
     const [clients, setClients] = useState([]);
     const [activeOwners, setActiveOwners] = useState([]);
     const [owners, setOwners] = useState([]);
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [selectedTask, setSelectedTask] = useState(null);
+    const [focusedOwner, setFocusedOwner] = useState(null);
 
     useEffect(() => {
         fetchTasksData();
@@ -77,15 +81,35 @@ const DeadlinesPage = () => {
     };
 
     const handleOwnerFilter = (ownerId) => {
-        setActiveOwners(prev =>
-            prev.includes(ownerId)
-                ? prev.filter(id => id !== ownerId)
-                : [...prev, ownerId]
-        );
+        if (focusedOwner === ownerId) {
+            // If the clicked owner is already focused, show all tasks
+            setFocusedOwner(null);
+        } else {
+            // Otherwise, focus on the clicked owner
+            setFocusedOwner(ownerId);
+        }
     };
 
-    const filteredTasks = activeOwners.length > 0
-        ? tasks.filter(task => task.AssignedOwner && task.AssignedOwner.some(owner => activeOwners.includes(owner)))
+    const handleTaskClick = (task) => {
+        setSelectedTask(task);
+        setIsTaskModalOpen(true);
+    };
+
+    const handleTaskModalClose = () => {
+        setIsTaskModalOpen(false);
+        setSelectedTask(null);
+    };
+
+    const handleTaskUpdate = (updatedTask) => {
+        // Update the task in the tasks array
+        setTasks(prevTasks => prevTasks.map(task => 
+            task.id === updatedTask.id ? updatedTask : task
+        ));
+        handleTaskModalClose();
+    };
+
+    const filteredTasks = focusedOwner
+        ? tasks.filter(task => task.AssignedOwner && task.AssignedOwner.includes(focusedOwner))
         : tasks;
 
     const getStatusColor = (status) => {
@@ -112,17 +136,14 @@ const DeadlinesPage = () => {
                             key={owner.id}
                             size="md"
                             borderRadius="full"
-                            variant={activeOwners.includes(owner.id) ? "solid" : "solid"}
-                            colorScheme="gray"
+                            variant={focusedOwner === owner.id ? "solid" : "outline"}
+                            colorScheme={focusedOwner === owner.id ? "blue" : "gray"}
                             cursor="pointer"
                             onClick={() => handleOwnerFilter(owner.id)}
                             p={1}
-                            bg="transparent"
-                            border={activeOwners.includes(owner.id) ? "1px solid" : "1px solid"}
-                            borderColor={activeOwners.includes(owner.id) ? "gray.800" : "gray.200"}
                         >
                             <Avatar size="xs" src={owner.avatar} name={owner.name} mr={2} />
-                            <TagLabel pr={2} color={activeOwners.includes(owner.id) ? "gray.800" : "gray.200"}>
+                            <TagLabel pr={2}>
                                 {owner.name}
                             </TagLabel>
                         </Tag>
@@ -138,6 +159,9 @@ const DeadlinesPage = () => {
                             borderRadius="lg"
                             p={4}
                             boxShadow="md"
+                            cursor="pointer"
+                            onClick={() => handleTaskClick(task)}
+                            _hover={{ boxShadow: "lg" }}
                         >
                             <Flex direction="column" justify="space-between" height="100%">
                                 <VStack align="stretch" spacing={2}>
@@ -174,6 +198,15 @@ const DeadlinesPage = () => {
                     ))}
                 </SimpleGrid>
             </Box>
+            {selectedTask && (
+                <TaskModal
+                    isOpen={isTaskModalOpen}
+                    onClose={handleTaskModalClose}
+                    task={selectedTask}
+                    onSave={handleTaskUpdate}
+                    isNewTask={false}
+                />
+            )}
         </Flex>
     );
 };

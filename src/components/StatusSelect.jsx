@@ -8,6 +8,7 @@ const StatusSelect = ({ value, onChange }) => {
   const options = [
     "Planned",
     "Awaiting Approval",
+    "Awaiting Response",
     "In Progress",
     "Reviewing",
     "Completed",

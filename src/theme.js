@@ -1,9 +1,14 @@
 import { extendTheme } from '@chakra-ui/react';
 
 const theme = extendTheme({
+  fonts: {
+    heading: '"Inter", sans-serif',
+    body: '"Inter", sans-serif',
+  },
   colors: {
     status: {
       planned: "#D5C8F6",
+      awaitingresponse: "#B3E2DF",
       awaitingapproval: "#B3E2DF",
       inprogress: "#A3C4F3",
       reviewing: "#F8ECC1",
