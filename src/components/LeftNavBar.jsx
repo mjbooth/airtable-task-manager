@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, VStack, Image, Text, Flex } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
+import Image from 'next/image';
 
 const LeftNavBar = () => {
   const navItems = [];
