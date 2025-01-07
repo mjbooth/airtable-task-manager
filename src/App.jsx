@@ -7,6 +7,7 @@ import TaskModal from './components/TaskModal';  // Import TaskModal
 import { FaPlus, FaSync } from 'react-icons/fa';
 import theme from './theme';
 import { ErrorBoundary } from 'react-error-boundary';
+import DeadlinesPage from './components/DeadlinesPage'; // Import the DeadlinesPage component
 
 function ErrorFallback({error}) {
   return (
@@ -56,6 +57,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<TaskList />} />
                   <Route path="/tasks" element={<TaskList />} />
+                  <Route path="/deadlines" element={<DeadlinesPage />} />
                   {/* Add other routes for Deadlines, Contacts, Insights, and Settings */}
                 </Routes>
               </Box>

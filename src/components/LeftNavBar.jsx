@@ -3,7 +3,7 @@ import { Box, VStack, Image, Text, Flex } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 
 const LeftNavBar = () => {
-  const navItems = [];
+  const navItems = ['Tasks', 'Deadlines'];
 //   const navItems = ['Tasks', 'Deadlines', 'Contacts', 'Insights', 'Settings'];
 
   return (
