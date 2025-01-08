@@ -205,7 +205,7 @@ const DeadlinesPage = () => {
                             <Flex direction="column" justify="space-between" height="100%">
                                 <VStack align="stretch" spacing={2}>
                                     <Flex justify="space-between" align="flex-start">
-                                        <Heading as="h4" size="md" mb={2} textAlign="left">{task.Name}</Heading>
+                                        <Heading as="h4" size="4xs" mb={2} textAlign="left">{task.Name}</Heading>
                                         <Badge
                                             bg={getStatusColor(task.Status)}
                                             color="black"
@@ -213,11 +213,12 @@ const DeadlinesPage = () => {
                                             px={2}
                                             py={1}
                                             borderRadius="full"
+                                            ml={1}
                                         >
                                             {task.Status}
                                         </Badge>
                                     </Flex>
-                                    <Text fontSize="sm" color="gray.600">{task.Client}</Text>
+                                    <Text fontSize="xs" color="gray.600">{task.Client}</Text>
                                 </VStack>
                                 <Flex justify="space-between" align="center" mt="auto" pt={4}>
                                     <HStack spacing={2}>
