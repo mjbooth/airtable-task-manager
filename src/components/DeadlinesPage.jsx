@@ -11,8 +11,14 @@ import {
     Avatar,
     Badge,
     Flex,
+    Menu,
+    MenuButton,
+    MenuList,
+    MenuItem,
+    Button,
 } from '@chakra-ui/react';
-import { format } from 'date-fns';
+import { ChevronDownIcon } from '@chakra-ui/icons';
+import { format, isToday, isThisWeek, isThisMonth, isBefore, startOfDay } from 'date-fns';
 import { fetchTasks, fetchClients } from '../airtableConfig';
 import axios from 'axios';
 import TaskModal from './TaskModal';
@@ -25,6 +31,7 @@ const DeadlinesPage = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [focusedOwner, setFocusedOwner] = useState(null);
+    const [dateFilter, setDateFilter] = useState('All');
 
     useEffect(() => {
         fetchTasksData();
@@ -82,10 +89,8 @@ const DeadlinesPage = () => {
 
     const handleOwnerFilter = (ownerId) => {
         if (focusedOwner === ownerId) {
-            // If the clicked owner is already focused, show all tasks
             setFocusedOwner(null);
         } else {
-            // Otherwise, focus on the clicked owner
             setFocusedOwner(ownerId);
         }
     };
@@ -101,16 +106,37 @@ const DeadlinesPage = () => {
     };
 
     const handleTaskUpdate = (updatedTask) => {
-        // Update the task in the tasks array
         setTasks(prevTasks => prevTasks.map(task => 
             task.id === updatedTask.id ? updatedTask : task
         ));
         handleTaskModalClose();
     };
 
-    const filteredTasks = focusedOwner
-        ? tasks.filter(task => task.AssignedOwner && task.AssignedOwner.includes(focusedOwner))
-        : tasks;
+    const handleDateFilter = (filter) => {
+        setDateFilter(filter);
+    };
+
+    const filterTasksByDate = (tasks) => {
+        const today = startOfDay(new Date());
+        switch (dateFilter) {
+            case 'Today':
+                return tasks.filter(task => isToday(new Date(task.DueDate)));
+            case 'Week':
+                return tasks.filter(task => isThisWeek(new Date(task.DueDate)));
+            case 'Month':
+                return tasks.filter(task => isThisMonth(new Date(task.DueDate)));
+            case 'Overdue':
+                return tasks.filter(task => isBefore(new Date(task.DueDate), today));
+            default:
+                return tasks;
+        }
+    };
+
+    const filteredTasks = filterTasksByDate(
+        focusedOwner
+            ? tasks.filter(task => task.AssignedOwner && task.AssignedOwner.includes(focusedOwner))
+            : tasks
+    );
 
     const getStatusColor = (status) => {
         const statusColors = {
@@ -125,30 +151,43 @@ const DeadlinesPage = () => {
         };
         return statusColors[status.toLowerCase()] || "gray.100";
     };
-
     return (
         <Flex height="calc(100vh - 104px)" direction="column">
             <Box p={5} bg="white" zIndex={1}>
                 <Heading as="h1" size="xl" mb={5}>Deadlines</Heading>
-                <HStack spacing={2} mb={5} wrap="wrap">
-                    {owners.map(owner => (
-                        <Tag
-                            key={owner.id}
-                            size="md"
-                            borderRadius="full"
-                            variant={focusedOwner === owner.id ? "solid" : "outline"}
-                            colorScheme={focusedOwner === owner.id ? "blue" : "gray"}
-                            cursor="pointer"
-                            onClick={() => handleOwnerFilter(owner.id)}
-                            p={1}
-                        >
-                            <Avatar size="xs" src={owner.avatar} name={owner.name} mr={2} />
-                            <TagLabel pr={2}>
-                                {owner.name}
-                            </TagLabel>
-                        </Tag>
-                    ))}
-                </HStack>
+                <Flex justify="space-between" align="center" mb={5}>
+                    <HStack spacing={2} wrap="wrap">
+                        {owners.map(owner => (
+                            <Tag
+                                key={owner.id}
+                                size="md"
+                                borderRadius="full"
+                                variant={focusedOwner === owner.id ? "solid" : "outline"}
+                                colorScheme={focusedOwner === owner.id ? "blue" : "gray"}
+                                cursor="pointer"
+                                onClick={() => handleOwnerFilter(owner.id)}
+                                p={1}
+                            >
+                                <Avatar size="xs" src={owner.avatar} name={owner.name} mr={2} />
+                                <TagLabel pr={2}>
+                                    {owner.name}
+                                </TagLabel>
+                            </Tag>
+                        ))}
+                    </HStack>
+                    <Menu>
+                        <MenuButton as={Button} rightIcon={<ChevronDownIcon />}>
+                            {dateFilter === 'All' ? 'Date Filter' : dateFilter}
+                        </MenuButton>
+                        <MenuList>
+                            <MenuItem onClick={() => handleDateFilter('All')}>All</MenuItem>
+                            <MenuItem onClick={() => handleDateFilter('Today')}>Today</MenuItem>
+                            <MenuItem onClick={() => handleDateFilter('Week')}>This Week</MenuItem>
+                            <MenuItem onClick={() => handleDateFilter('Month')}>This Month</MenuItem>
+                            <MenuItem onClick={() => handleDateFilter('Overdue')}>Overdue</MenuItem>
+                        </MenuList>
+                    </Menu>
+                </Flex>
             </Box>
             <Box flex={1} overflow="auto" px={5} pb={5}>
                 <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
