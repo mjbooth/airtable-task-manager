@@ -11,6 +11,8 @@ console.log('PAT:', pat ? 'Set' : 'Not set');
 console.log('Base ID:', baseId);
 console.log('Task Table ID:', taskTableId);
 console.log('Client Table ID:', clientTableId);
+console.log('Status Config Table ID:', statusConfigTableId ? 'Set' : 'Not set');
+console.log('Status Config Table ID:', statusConfigTableId);
 
 if (!pat || !baseId || !taskTableId || !clientTableId) {
   console.error('Missing Airtable configuration. Please check your .env file.');
