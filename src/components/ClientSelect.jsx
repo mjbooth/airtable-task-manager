@@ -8,7 +8,7 @@ const ClientDisplay = ({ client }) => (
   </Flex>
 );
 
-const ClientSelect = ({ value, onChange, clients, isEditable = true }) => {
+const ClientSelect = ({ value, onChange, clients = [], isEditable = true }) => {
   const [searchQuery, setSearchQuery] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef(null);
@@ -31,13 +31,16 @@ const ClientSelect = ({ value, onChange, clients, isEditable = true }) => {
     };
   }, []);
 
-   if (!isEditable) {
+  if (!isEditable) {
     return <ClientDisplay client={value || 'Unassigned'} />;
   }
-
-  const filteredClients = clients
-  .filter(client => client.toLowerCase().includes(searchQuery.toLowerCase()))
-  .sort((a, b) => a.localeCompare(b));
+  
+  const filteredClients = Array.isArray(clients)
+    ? clients
+        .filter(client => client && typeof client === 'string' && client.trim() !== '')
+        .filter(client => client.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => a.localeCompare(b))
+    : [];
 
   const handleInputChange = (e) => {
     setSearchQuery(e.target.value);

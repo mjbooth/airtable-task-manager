@@ -1,26 +1,22 @@
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import { Menu, MenuButton, MenuList, MenuItem, Button, Box, useTheme } from '@chakra-ui/react';
+import { useStatusConfig } from '../contexts/StatusContext';
 
 const StatusSelect = ({ value, onChange }) => {
   const theme = useTheme();
-  const statusColors = theme.colors.status;
+  const statusConfig = useStatusConfig();
 
-  const options = [
-    "Planned",
-    "Awaiting Approval",
-    "Awaiting Response",
-    "In Progress",
-    "Reviewing",
-    "Completed",
-    "On Hold",
-    "Cancelled",
-    "Blocked"
-  ];
+  console.log('Status config in StatusSelect:', statusConfig); // Debug log
+
+  const options = Object.values(statusConfig).map(status => status.status);
 
   const getStatusColor = (status) => {
-    if (!status) return theme.colors.gray[200];
-    const key = status.toLowerCase().replace(/\s+/g, '');
-    return statusColors[key] || theme.colors.gray[200];
+    return theme.colors.status[status] || theme.colors.gray[200];
+  };
+
+  const getStatusTextColor = (status) => {
+    // For now, we'll use black for all text colors
+    return 'black';
   };
 
   return (
@@ -29,7 +25,7 @@ const StatusSelect = ({ value, onChange }) => {
         as={Button} 
         rightIcon={<ChevronDownIcon />} 
         bg={getStatusColor(value)} 
-        color="black"
+        color={getStatusTextColor(value)}
         _hover={{ bg: `${getStatusColor(value)}80` }}
         _active={{ bg: `${getStatusColor(value)}90` }}
         fontWeight="bold"
@@ -43,7 +39,7 @@ const StatusSelect = ({ value, onChange }) => {
         {options.map((option) => (
           <MenuItem 
             key={option} 
-            onClick={() => onChange(option)}  // Changed this line
+            onClick={() => onChange(option)}
             bg={option === value ? `${getStatusColor(option)}40` : 'white'}
             _hover={{ bg: `${getStatusColor(option)}20` }}
             fontWeight={option === value ? "bold" : "normal"}

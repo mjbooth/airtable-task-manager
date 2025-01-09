@@ -7,9 +7,11 @@ import TaskModal from './components/TaskModal';  // Import TaskModal
 import { FaPlus, FaSync } from 'react-icons/fa';
 import theme from './theme';
 import { ErrorBoundary } from 'react-error-boundary';
-import DeadlinesPage from './components/DeadlinesPage'; // Import the DeadlinesPage component
+import DeadlinesPage from './components/DeadlinesPage';
+import { StatusProvider } from './contexts/StatusContext';
+import SettingsPage from './components/SettingsPage';
 
-function ErrorFallback({error}) {
+function ErrorFallback({ error }) {
   return (
     <Box role="alert">
       <Text>Something went wrong:</Text>
@@ -41,29 +43,32 @@ function App() {
   return (
     <ChakraProvider theme={theme}>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <Router>
-          <Flex>
-            <LeftNavBar />
-            <Box flex={1}>
-              <Flex justifyContent="flex-end" p={4}>
-                <Button leftIcon={<FaPlus />} colorScheme="gray" mr={2} onClick={handleNewTask}>
-                  Create
-                </Button>
-                <Button leftIcon={<FaSync />} colorScheme="gray" onClick={handleRefresh}>
-                  Refresh
-                </Button>
-              </Flex>
-              <Box p={4}>
-                <Routes>
-                  <Route path="/" element={<TaskList />} />
-                  <Route path="/tasks" element={<TaskList />} />
-                  <Route path="/deadlines" element={<DeadlinesPage />} />
-                  {/* Add other routes for Deadlines, Contacts, Insights, and Settings */}
-                </Routes>
+        <StatusProvider>
+          <Router>
+            <Flex>
+              <LeftNavBar />
+              <Box flex={1}>
+                <Flex justifyContent="flex-end" p={4}>
+                  <Button leftIcon={<FaPlus />} colorScheme="gray" mr={2} onClick={handleNewTask}>
+                    Create
+                  </Button>
+                  <Button leftIcon={<FaSync />} colorScheme="gray" onClick={handleRefresh}>
+                    Refresh
+                  </Button>
+                </Flex>
+                <Box p={4}>
+                  <Routes>
+                    <Route path="/" element={<TaskList />} />
+                    <Route path="/tasks" element={<TaskList />} />
+                    <Route path="/deadlines" element={<DeadlinesPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    {/* Add other routes for Deadlines, Contacts, Insights, and Settings */}
+                  </Routes>
+                </Box>
               </Box>
-            </Box>
-          </Flex>
-        </Router>
+            </Flex>
+          </Router>
+        </StatusProvider>
         <TaskModal
           isOpen={isTaskModalOpen}
           onClose={handleTaskModalClose}

@@ -108,8 +108,7 @@ const TaskList = () => {
 
   const getStatusColor = (status) => {
     if (!status) return theme.colors.gray[200];
-    const key = status.toLowerCase().replace(/\s+/g, '');
-    return theme.colors.status[key] || theme.colors.gray[200];
+    return theme.colors.status[status] || theme.colors.gray[200];
   };
 
   const getClientInfo = (clientName) => {
@@ -174,7 +173,13 @@ const TaskList = () => {
     return lifecycleStageOrder.indexOf(a[0]) - lifecycleStageOrder.indexOf(b[0]);
   });
 
-  if (loading) return <Spinner size="xl" />;
+  if (loading) {
+    return (
+      <Flex width="100%" height="80vh" justifyContent="center" alignItems="center">
+        <Spinner size="xl" />
+      </Flex>
+    );
+  }
   if (error) return <Text color="red.500">{error}</Text>;
 
   return (
@@ -259,11 +264,13 @@ const TaskList = () => {
                                     <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
                                     <Badge 
                                       bg={getStatusColor(task.Status)}
-                                      fontSize="x-small"
+                                      color="black"  // Add this line to set the text color
+                                      fontSize="xs"
                                       px={2}
                                       py={1}
                                       ml={1}
                                       borderRadius="full"
+                                      textTransform="none" // Add this line to prevent uppercase transformation
                                     >
                                       {task.Status}
                                     </Badge>

@@ -3,6 +3,7 @@ import {
     Box,
     Heading,
     SimpleGrid,
+    Spinner,
     HStack,
     Tag,
     TagLabel,
@@ -16,28 +17,44 @@ import {
     MenuList,
     MenuItem,
     Button,
+    useTheme,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import { format, isToday, isThisWeek, isThisMonth, isBefore, startOfDay } from 'date-fns';
 import { fetchTasks, fetchClients } from '../airtableConfig';
 import axios from 'axios';
 import TaskModal from './TaskModal';
+import { useStatusConfig } from '../contexts/StatusContext';
 
 const DeadlinesPage = () => {
     const [tasks, setTasks] = useState([]);
     const [clients, setClients] = useState([]);
     const [activeOwners, setActiveOwners] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [owners, setOwners] = useState([]);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [focusedOwner, setFocusedOwner] = useState(null);
     const [dateFilter, setDateFilter] = useState('All');
+    const statusConfig = useStatusConfig();
+    const theme = useTheme();
 
     useEffect(() => {
-        fetchTasksData();
-        fetchClientsData();
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                await fetchTasksData();
+                await fetchClientsData();
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+    
+        fetchData();
     }, []);
-
+    
     const fetchTasksData = async () => {
         try {
             const fetchedTasks = await fetchTasks();
@@ -45,11 +62,11 @@ const DeadlinesPage = () => {
                 .filter(task => task.Status !== 'Completed')
                 .sort((a, b) => new Date(a.DueDate) - new Date(b.DueDate));
             setTasks(filteredAndSortedTasks);
-
+    
             const uniqueOwnerIds = [...new Set(filteredAndSortedTasks
                 .flatMap(task => task.AssignedOwner || [])
                 .filter(owner => owner))];
-
+    
             const ownersDetails = await Promise.all(uniqueOwnerIds.map(async (ownerId) => {
                 try {
                     const response = await axios.get(
@@ -70,14 +87,14 @@ const DeadlinesPage = () => {
                     return { id: ownerId, name: 'Unknown', avatar: '' };
                 }
             }));
-
+    
             setOwners(ownersDetails);
             setActiveOwners(ownersDetails.map(owner => owner.id));
         } catch (error) {
             console.error("Error fetching tasks:", error);
         }
     };
-
+    
     const fetchClientsData = async () => {
         try {
             const fetchedClients = await fetchClients();
@@ -106,7 +123,7 @@ const DeadlinesPage = () => {
     };
 
     const handleTaskUpdate = (updatedTask) => {
-        setTasks(prevTasks => prevTasks.map(task => 
+        setTasks(prevTasks => prevTasks.map(task =>
             task.id === updatedTask.id ? updatedTask : task
         ));
         handleTaskModalClose();
@@ -139,18 +156,18 @@ const DeadlinesPage = () => {
     );
 
     const getStatusColor = (status) => {
-        const statusColors = {
-            planned: "blue.100",
-            "awaiting approval": "yellow.100",
-            "in progress": "green.100",
-            reviewing: "purple.100",
-            completed: "teal.100",
-            "on hold": "orange.100",
-            cancelled: "red.100",
-            blocked: "gray.100"
-        };
-        return statusColors[status.toLowerCase()] || "gray.100";
+        const statusObj = statusConfig[status.toLowerCase()];
+        return statusObj ? statusObj.color : theme.colors.gray[100];
     };
+
+    if (loading) {
+        return (
+            <Flex width="100%" height="80vh" justifyContent="center" alignItems="center">
+                <Spinner size="xl" />
+            </Flex>
+        );
+    }
+
     return (
         <Flex height="calc(100vh - 104px)" direction="column">
             <Box p={5} bg="white" zIndex={1}>
@@ -208,7 +225,7 @@ const DeadlinesPage = () => {
                                         <Heading as="h4" size="4xs" mb={2} textAlign="left">{task.Name}</Heading>
                                         <Badge
                                             bg={getStatusColor(task.Status)}
-                                            color="black"
+                                            color={statusConfig[task.Status.toLowerCase()]?.textColor || "black"}
                                             fontSize="xs"
                                             px={2}
                                             py={1}

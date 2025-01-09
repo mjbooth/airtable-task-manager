@@ -24,6 +24,7 @@ import {
 import { format } from 'date-fns';
 import EditableClientStatus from './EditableClientStatus';
 import TaskModal from './TaskModal';
+import { useStatusConfig } from '../contexts/StatusContext';
 
 const convertNewlinesToBreaks = (text) => {
   return text.split('\n').map((line, index) => (
@@ -42,6 +43,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
   const toast = useToast();
   const [activeStatuses, setActiveStatuses] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
+  const statusConfig = useStatusConfig();
 
   useEffect(() => {
     setIsClientModalOpen(isOpen);
@@ -116,7 +118,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
       });
     }
   };
-  
+
   const handleStatusFilter = (status) => {
     let newActiveStatuses;
     if (activeStatuses.includes(status)) {
@@ -125,9 +127,15 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
       newActiveStatuses = [...activeStatuses, status];
     }
     setActiveStatuses(newActiveStatuses);
-    
+
     const newFilteredTasks = sortTasksByDueDate(tasks.filter(task => newActiveStatuses.includes(task.Status)));
     setFilteredTasks(newFilteredTasks);
+  };
+
+  // Function to get the hex color for a given status
+  const getStatusHexColor = (statusName) => {
+    const statusEntry = Object.values(statusConfig).find(entry => entry.status === statusName);
+    return statusEntry ? statusEntry.hexColor : 'gray.200';
   };
 
   const sortTasksByDueDate = (tasksToSort) => {
@@ -172,22 +180,19 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
               <Box>
                 <Heading as="h4" size="md" mb={2}>Tasks</Heading>
                 <HStack spacing={2} mb={4} wrap="wrap">
-                  {/* Completed status tag (always first) */}
                   <Tag
                     key="Completed"
                     size="md"
                     borderRadius="full"
                     variant={activeStatuses.includes("Completed") ? "solid" : "outline"}
-                    bg={activeStatuses.includes("Completed") ? `status.completed` : "transparent"}
-                    color={activeStatuses.includes("Completed") ? "black" : `status.completed`}
-                    borderColor={`status.completed`}
+                    bg={activeStatuses.includes("Completed") ? getStatusHexColor("Completed") : "transparent"}
+                    color={activeStatuses.includes("Completed") ? "black" : getStatusHexColor("Completed")}
+                    borderColor={getStatusHexColor("Completed")}
                     cursor="pointer"
                     onClick={() => handleStatusFilter("Completed")}
                   >
                     <TagLabel>Completed</TagLabel>
                   </Tag>
-
-                  {/* Other status tags */}
                   {tasks && [...new Set(tasks.map(task => task.Status))]
                     .filter(status => status !== "Completed")
                     .map(status => (
@@ -196,9 +201,9 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                         size="md"
                         borderRadius="full"
                         variant={activeStatuses.includes(status) ? "solid" : "outline"}
-                        bg={activeStatuses.includes(status) ? `status.${status.toLowerCase().replace(/\s+/g, '')}` : "transparent"}
-                        color={activeStatuses.includes(status) ? "black" : `status.${status.toLowerCase().replace(/\s+/g, '')}`}
-                        borderColor={`status.${status.toLowerCase().replace(/\s+/g, '')}`}
+                        bg={activeStatuses.includes(status) ? getStatusHexColor(status) : "transparent"}
+                        color={activeStatuses.includes(status) ? "black" : getStatusHexColor(status)}
+                        borderColor={getStatusHexColor(status)}
                         cursor="pointer"
                         onClick={() => handleStatusFilter(status)}
                       >
@@ -206,7 +211,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                       </Tag>
                     ))}
                 </HStack>
-                <VStack align="stretch" spacing={4}> 
+                <VStack align="stretch" spacing={4}>
                   {filteredTasks && filteredTasks.length > 0 ? filteredTasks.map(task => (
                     <Box
                       key={task.id}
@@ -221,12 +226,13 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                       <VStack align="start" spacing={4}>
                         <Heading as="h5" size="sm">{task.Name}</Heading>
                         <Badge
-                          bg={getStatusColor(task.Status)} 
+                          bg={getStatusColor(task.Status)}
                           color="black"
-                          fontSize="x-small"
+                          fontSize="sm"
                           px={2}
                           py={1}
                           borderRadius="full"
+                          textTransform="none"
                         >
                           {task.Status}
                         </Badge>

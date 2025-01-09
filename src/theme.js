@@ -6,17 +6,7 @@ const theme = extendTheme({
     body: '"Inter", sans-serif',
   },
   colors: {
-    status: {
-      planned: "#D5C8F6",
-      awaitingresponse: "#B3E2DF",
-      awaitingapproval: "#B3E2DF",
-      inprogress: "#A3C4F3",
-      reviewing: "#F8ECC1",
-      completed: "#B8E8C1",
-      onhold: "#F9D3B4",
-      cancelled: "#F7B4B7",
-      blocked: "#F9B7B3",
-    },
+    status: {},
   },
   components: {
     StatusSelect: {
@@ -43,5 +33,18 @@ const theme = extendTheme({
     },
   },
 });
+
+export const updateThemeColors = (statusConfig) => {
+  console.log('Updating theme colors with:', statusConfig); // Debug log
+  Object.values(statusConfig).forEach((status) => {
+    if (status && status.hexColor) {
+      console.log(`Setting color for status ${status.status}:`, status.hexColor); // Debug log
+      theme.colors.status[status.status] = status.hexColor;
+    } else {
+      console.warn(`Missing color for status: ${status.status}`);
+    }
+  });
+  console.log('Updated theme colors:', theme.colors.status); // Debug log
+};
 
 export default theme;
