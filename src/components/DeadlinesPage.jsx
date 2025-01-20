@@ -51,22 +51,23 @@ const DeadlinesPage = () => {
                 setLoading(false);
             }
         };
-    
+
         fetchData();
     }, []);
-    
+
     const fetchTasksData = async () => {
         try {
             const fetchedTasks = await fetchTasks();
+            const excludedStatuses = ['Completed', 'Cancelled'];
             const filteredAndSortedTasks = fetchedTasks
-                .filter(task => task.Status !== 'Completed')
+                .filter(task => !excludedStatuses.includes(task.Status))
                 .sort((a, b) => new Date(a.DueDate) - new Date(b.DueDate));
             setTasks(filteredAndSortedTasks);
-    
+
             const uniqueOwnerIds = [...new Set(filteredAndSortedTasks
                 .flatMap(task => task.AssignedOwner || [])
                 .filter(owner => owner))];
-    
+
             const ownersDetails = await Promise.all(uniqueOwnerIds.map(async (ownerId) => {
                 try {
                     const response = await axios.get(
@@ -87,14 +88,14 @@ const DeadlinesPage = () => {
                     return { id: ownerId, name: 'Unknown', avatar: '' };
                 }
             }));
-    
+
             setOwners(ownersDetails);
             setActiveOwners(ownersDetails.map(owner => owner.id));
         } catch (error) {
             console.error("Error fetching tasks:", error);
         }
     };
-    
+
     const fetchClientsData = async () => {
         try {
             const fetchedClients = await fetchClients();
