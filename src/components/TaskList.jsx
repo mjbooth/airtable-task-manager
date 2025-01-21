@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Box, 
-  VStack, 
-  Heading, 
+import {
+  Box,
+  VStack,
+  Heading,
   Text,
-  Spinner, 
+  Spinner,
   Badge,
   Flex,
   Button,
@@ -59,27 +59,27 @@ const TaskList = () => {
 
   const handleTaskUpdate = useCallback((updatedTask) => {
     console.log('handleTaskUpdate called with:', updatedTask);
-  
+
     setTasks(prevTasks => {
-      const newTasks = prevTasks.map(task => 
+      const newTasks = prevTasks.map(task =>
         task.id === updatedTask.id ? { ...task, ...updatedTask } : task
       );
       console.log('Updated tasks:', newTasks);
       return newTasks;
     });
-  
+
     // Update the selectedTask to reflect changes
     setSelectedTask(prev => (prev && prev.id === updatedTask.id ? { ...prev, ...updatedTask } : prev));
-  
+
     // Force a re-render by updating the updateTrigger
     setUpdateTrigger(prev => prev + 1);
-  }, []);  
+  }, []);
 
   const handleClientStatusUpdate = useCallback(async (clientId, newStatus) => {
     try {
       const updatedClient = await updateClientStatus(clientId, newStatus);
-      setClients(prevClients => 
-        prevClients.map(client => 
+      setClients(prevClients =>
+        prevClients.map(client =>
           client.id === clientId ? updatedClient : client
         )
       );
@@ -99,7 +99,7 @@ const TaskList = () => {
       setSelectedClient(null);
     }
   }, [isClientModalOpen]);
-  
+
   useEffect(() => {
     if (!isTaskModalOpen) {
       setSelectedTask(null);
@@ -117,7 +117,7 @@ const TaskList = () => {
   };
 
   const groupTasksByLifecycleStageAndClient = (tasks) => {
-    return tasks.reduce((acc, task) => {
+    const grouped = tasks.reduce((acc, task) => {
       const { name: clientName, lifecycleStage } = getClientInfo(task.Client);
 
       if (!acc[lifecycleStage]) {
@@ -129,11 +129,20 @@ const TaskList = () => {
       acc[lifecycleStage][clientName].push(task);
       return acc;
     }, {});
+
+    // Sort clients alphabetically within each lifecycle stage
+    Object.keys(grouped).forEach(stage => {
+      grouped[stage] = Object.entries(grouped[stage])
+        .sort(([a], [b]) => a.localeCompare(b))
+        .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
+    });
+
+    return grouped;
   };
 
-  const filteredTasks = showCompleted 
-    ? tasks 
-    : tasks.filter(task => task.Status?.toLowerCase() !== 'completed');
+  const filteredTasks = showCompleted
+    ? tasks
+    : tasks.filter(task => !['completed', 'cancelled'].includes(task.Status?.toLowerCase()));
 
   const groupedTasks = groupTasksByLifecycleStageAndClient(filteredTasks);
 
@@ -187,16 +196,16 @@ const TaskList = () => {
       <Flex justify="space-between" align="center" mb={4}>
         <FormControl display="flex" alignItems="center">
           <FormLabel htmlFor="show-completed" mb="0">
-            Show Completed Tasks
+          Show Closed Tasks
           </FormLabel>
-          <Switch 
-            id="show-completed" 
+          <Switch
+            id="show-completed"
             isChecked={showCompleted}
             onChange={(e) => setShowCompleted(e.target.checked)}
           />
         </FormControl>
       </Flex>
-      <Box 
+      <Box
         height="calc(100vh - 144px)" // Adjusted for top nav and padding
         width="calc(100vw - 260px)" // Adjusted for left nav
         position="absolute"
@@ -205,15 +214,15 @@ const TaskList = () => {
         overflowX="auto"
         overflowY="hidden"
       >
-        <HStack 
+        <HStack
           spacing={4}
           alignItems="stretch"
           height="100%"
         >
           {sortedGroupedTasks.map(([lifecycleStage, clientTasks]) => (
-              <Box 
-              key={lifecycleStage} 
-              width="460px" 
+            <Box
+              key={lifecycleStage}
+              width="460px"
               bg="gray.50"
               p={4}
               borderRadius="lg"
@@ -249,7 +258,7 @@ const TaskList = () => {
                         <AccordionPanel pb={4}>
                           <VStack spacing={4} align="stretch">
                             {tasks.map(task => (
-                              <Box 
+                              <Box
                                 key={task.id}
                                 p={3}
                                 borderWidth="1px"
@@ -262,7 +271,7 @@ const TaskList = () => {
                                 <VStack align="start" spacing={4}>
                                   <Flex justify="space-between" width="100%" alignItems="center">
                                     <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
-                                    <Badge 
+                                    <Badge
                                       bg={getStatusColor(task.Status)}
                                       color="black"  // Add this line to set the text color
                                       fontSize="xs"
@@ -277,9 +286,9 @@ const TaskList = () => {
                                   </Flex>
                                   <Flex align="left" justify="space-between" width="100%">
                                     <Tooltip label={task.Owner || 'Unassigned'}>
-                                      <Avatar 
-                                        size="xs" 
-                                        name={task.Owner || 'Unassigned'} 
+                                      <Avatar
+                                        size="xs"
+                                        name={task.Owner || 'Unassigned'}
                                         bg={task.Owner ? "blue.500" : "gray.500"}
                                         color="white"
                                       />

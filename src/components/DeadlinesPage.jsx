@@ -157,8 +157,12 @@ const DeadlinesPage = () => {
     );
 
     const getStatusColor = (status) => {
-        const statusObj = statusConfig[status.toLowerCase()];
-        return statusObj ? statusObj.color : theme.colors.gray[100];
+        return theme.colors.status[status] || theme.colors.gray[200];
+    };
+
+    const getStatusTextColor = (status) => {
+        // For now, we'll use black for all text colors, as in StatusSelect
+        return 'black';
     };
 
     if (loading) {
@@ -226,7 +230,7 @@ const DeadlinesPage = () => {
                                         <Heading as="h4" size="4xs" mb={2} textAlign="left">{task.Name}</Heading>
                                         <Badge
                                             bg={getStatusColor(task.Status)}
-                                            color={statusConfig[task.Status.toLowerCase()]?.textColor || "black"}
+                                            color={getStatusTextColor(task.Status)}
                                             fontSize="xs"
                                             px={2}
                                             py={1}
