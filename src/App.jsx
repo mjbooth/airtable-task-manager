@@ -9,7 +9,7 @@ import theme from './theme';
 import { ErrorBoundary } from 'react-error-boundary';
 import DeadlinesPage from './components/DeadlinesPage';
 import { StatusProvider } from './contexts/StatusContext';
-import SettingsPage from './components/SettingsPage';
+import SettingsPage from './components/settings/SettingsPage';
 
 function ErrorFallback({ error }) {
   return (

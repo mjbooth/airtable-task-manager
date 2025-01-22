@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabList, TabPanels, Tab, TabPanel, Box, Table, Thead, Tbody, Tr, Th, Td, Input, HStack, Text, IconButton, Container, Button } from '@chakra-ui/react';
 import { EditIcon, CheckIcon } from '@chakra-ui/icons';
-import { fetchStatusConfig } from '../airtableConfig';
+import { fetchStatusConfig } from '../../airtableConfig';
+import SettingsClientList from './ClientList'; // Add this import
 
 const SettingsPage = () => {
   const [statusConfig, setStatusConfig] = useState({});
@@ -48,7 +49,7 @@ const SettingsPage = () => {
       <Tabs variant="enclosed">
         <TabList>
           <Tab>Status Colours</Tab>
-          {/* Add more tabs here as needed */}
+          <Tab>Client List</Tab>
         </TabList>
         <TabPanels>
           <TabPanel>
@@ -108,7 +109,9 @@ const SettingsPage = () => {
               </Table>
             </Container>
           </TabPanel>
-          {/* Add more TabPanels for additional tabs */}
+          <TabPanel>
+            <SettingsClientList />
+          </TabPanel>
         </TabPanels>
       </Tabs>
     </Box>
