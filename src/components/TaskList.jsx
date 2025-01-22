@@ -20,10 +20,11 @@ import {
 } from '@chakra-ui/react';
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
 import { BsThreeDots } from 'react-icons/bs';
-import { fetchTasks, fetchClients, updateClientStatus, updateTask } from '../airtableConfig';
+import { fetchTasks, fetchClients, updateClientStatus, updateTask, updateClientPinnedStatus } from '../airtableConfig';
 import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
 import { useTheme } from '@chakra-ui/react';
+import { StarIcon } from '@chakra-ui/icons';
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([]);
@@ -37,6 +38,7 @@ const TaskList = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [pinnedClients, setPinnedClients] = useState([]);
 
   const theme = useTheme();
 
@@ -44,10 +46,10 @@ const TaskList = () => {
     setLoading(true);
     try {
       const [fetchedTasks, fetchedClients] = await Promise.all([fetchTasks(), fetchClients()]);
-      console.log('Fetched tasks:', fetchedTasks);
-      console.log('Fetched clients:', fetchedClients);
       setTasks(fetchedTasks);
       setClients(fetchedClients);
+      // Update pinnedClients state
+      setPinnedClients(fetchedClients.filter(client => client.isPinned).map(client => client.name));
       setError(null);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -56,6 +58,36 @@ const TaskList = () => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    getData();
+  }, [getData, updateTrigger]);
+
+  const togglePinnedClient = async (clientId) => {
+    try {
+      const client = clients.find(c => c.id === clientId);
+      if (!client) return;
+
+      const newPinnedStatus = !client.isPinned;
+      await updateClientPinnedStatus(clientId, newPinnedStatus);
+
+      setClients(prevClients =>
+        prevClients.map(c =>
+          c.id === clientId ? { ...c, isPinned: newPinnedStatus } : c
+        )
+      );
+
+      setPinnedClients(prev =>
+        newPinnedStatus
+          ? [...prev, client.name]
+          : prev.filter(name => name !== client.name)
+      );
+
+      console.log(`Client ${client.name} ${newPinnedStatus ? 'pinned' : 'unpinned'}`);
+    } catch (error) {
+      console.error('Error toggling pinned status:', error);
+    }
+  };
 
   const handleTaskUpdate = useCallback((updatedTask) => {
     console.log('handleTaskUpdate called with:', updatedTask);
@@ -89,10 +121,6 @@ const TaskList = () => {
       throw error;
     }
   }, []);
-
-  useEffect(() => {
-    getData();
-  }, [getData, updateTrigger]);
 
   useEffect(() => {
     if (!isClientModalOpen) {
@@ -196,7 +224,7 @@ const TaskList = () => {
       <Flex justify="space-between" align="center" mb={4}>
         <FormControl display="flex" alignItems="center">
           <FormLabel htmlFor="show-completed" mb="0">
-          Show Closed Tasks
+            Show Closed Tasks
           </FormLabel>
           <Switch
             id="show-completed"
@@ -227,85 +255,105 @@ const TaskList = () => {
               p={4}
               borderRadius="lg"
               height="100%"
-              overflowY="auto" // This enables vertical scrolling for each column
-              flexShrink={0} // Prevents the box from shrinking
+              overflowY="auto"
+              flexShrink={0}
             >
               <Heading as="h3" size="md" mb={4} textAlign="left">{lifecycleStage}</Heading>
               <VStack spacing={4} align="stretch">
-                {Object.entries(clientTasks).map(([clientName, tasks]) => (
-                  <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="sm">
-                    <Accordion allowMultiple>
-                      <AccordionItem border="none">
-                        <Flex alignItems="center">
-                          <AccordionButton flex="1">
-                            <Box flex="1" textAlign="left">
-                              <Heading as="h4" size="sm">{clientName}</Heading>
-                            </Box>
-                            <AccordionIcon />
-                          </AccordionButton>
-                          <IconButton
-                            aria-label="Open client details"
-                            icon={<BsThreeDots />}
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleClientClick(clientName);
-                            }}
-                            mr={2}
-                          />
-                        </Flex>
-                        <AccordionPanel pb={4}>
-                          <VStack spacing={4} align="stretch">
-                            {tasks.map(task => (
-                              <Box
-                                key={task.id}
-                                p={3}
-                                borderWidth="1px"
-                                borderRadius="md"
-                                bg="gray.50"
-                                onClick={() => handleTaskClick(task)}
-                                cursor="pointer"
-                                _hover={{ bg: "gray.100" }}
-                              >
-                                <VStack align="start" spacing={4}>
-                                  <Flex justify="space-between" width="100%" alignItems="center">
-                                    <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
-                                    <Badge
-                                      bg={getStatusColor(task.Status)}
-                                      color="black"  // Add this line to set the text color
-                                      fontSize="xs"
-                                      px={2}
-                                      py={1}
-                                      ml={1}
-                                      borderRadius="full"
-                                      textTransform="none" // Add this line to prevent uppercase transformation
-                                    >
-                                      {task.Status}
-                                    </Badge>
-                                  </Flex>
-                                  <Flex align="left" justify="space-between" width="100%">
-                                    <Tooltip label={task.Owner || 'Unassigned'}>
-                                      <Avatar
-                                        size="xs"
-                                        name={task.Owner || 'Unassigned'}
-                                        bg={task.Owner ? "blue.500" : "gray.500"}
-                                        color="white"
-                                      />
-                                    </Tooltip>
-                                    {task.DueDate && (
-                                      <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
-                                    )}
-                                  </Flex>
-                                </VStack>
+                {Object.entries(clientTasks)
+                  .sort(([a], [b]) => {
+                    // Sort pinned clients to the top
+                    if (pinnedClients.includes(a) && !pinnedClients.includes(b)) return -1;
+                    if (!pinnedClients.includes(a) && pinnedClients.includes(b)) return 1;
+                    return a.localeCompare(b); // Alphabetical sort for the rest
+                  })
+                  .map(([clientName, tasks]) => (
+                    <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="sm">
+                      <Accordion allowMultiple>
+                        <AccordionItem border="none">
+                          <Flex alignItems="center">
+                            <AccordionButton flex="1">
+                              <Box flex="1" textAlign="left">
+                                <Heading as="h4" size="sm">{clientName}</Heading>
                               </Box>
-                            ))}
-                          </VStack>
-                        </AccordionPanel>
-                      </AccordionItem>
-                    </Accordion>
-                  </Box>
-                ))}
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <IconButton
+                              aria-label="Pin client"
+                              icon={<StarIcon />}
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const client = clients.find(c => c.name === clientName);
+                                if (client) {
+                                  togglePinnedClient(client.id);
+                                }
+                              }}
+                              mr={1}
+                              color={pinnedClients.includes(clientName) ? "yellow.500" : "gray.300"}
+                            />
+                            <IconButton
+                              aria-label="Open client details"
+                              icon={<BsThreeDots />}
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleClientClick(clientName);
+                              }}
+                              mr={2}
+                            />
+                          </Flex>
+                          <AccordionPanel pb={4}>
+                            <VStack spacing={4} align="stretch">
+                              {tasks.map(task => (
+                                <Box
+                                  key={task.id}
+                                  p={3}
+                                  borderWidth="1px"
+                                  borderRadius="md"
+                                  bg="gray.50"
+                                  onClick={() => handleTaskClick(task)}
+                                >
+                                  <VStack align="start" spacing={4}>
+                                    <Flex justify="space-between" width="100%" alignItems="center">
+                                      <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
+                                      <Badge
+                                        bg={getStatusColor(task.Status)}
+                                        color="black"  // Add this line to set the text color
+                                        fontSize="xs"
+                                        px={2}
+                                        py={1}
+                                        ml={1}
+                                        borderRadius="full"
+                                        textTransform="none" // Add this line to prevent uppercase transformation
+                                      >
+                                        {task.Status}
+                                      </Badge>
+                                    </Flex>
+                                    <Flex align="left" justify="space-between" width="100%">
+                                      <Tooltip label={task.Owner || 'Unassigned'}>
+                                        <Avatar
+                                          size="xs"
+                                          name={task.Owner || 'Unassigned'}
+                                          bg={task.Owner ? "blue.500" : "gray.500"}
+                                          color="white"
+                                        />
+                                      </Tooltip>
+                                      {task.DueDate && (
+                                        <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
+                                      )}
+                                    </Flex>
+                                  </VStack>
+                                </Box>
+                              ))}
+                            </VStack>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      </Accordion>
+                    </Box>
+                  ))}
               </VStack>
             </Box>
           ))}

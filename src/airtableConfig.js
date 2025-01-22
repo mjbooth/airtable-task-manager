@@ -50,14 +50,20 @@ export const fetchTasks = async () => {
 };
 
 export const fetchClients = async () => {
+  if (!clientTable) {
+    console.error('Client table is not configured properly.');
+    throw new Error('Client table is not configured properly.');
+  }
+
   try {
     const records = await clientTable.select().all();
     return records.map(record => ({
       id: record.id,
-      name: record.fields.Client, // Assuming 'Client' is the field name for client name
-      lifecycleStage: record.fields['Lifecycle Stage'] || 'Unknown', // Adjust if the field name is different
-      status: record.get('Status'),
-      lastUpdated: record.get('Last Updated'), // Make sure 'Last Updated' matches your Airtable column name
+      name: record.fields.Client,
+      lifecycleStage: record.fields['Lifecycle Stage'] || 'Unknown',
+      status: record.fields.Status,
+      lastUpdated: record.fields['Last Updated'],
+      isPinned: record.fields.pinnedClient || false, // This line is correct
       ...record.fields,
     }));
   } catch (error) {
@@ -66,17 +72,55 @@ export const fetchClients = async () => {
   }
 };
 
+export const updateClientPinnedStatus = async (clientId, isPinned) => {
+  if (!clientTable) {
+    console.error('Client table is not configured properly.');
+    throw new Error('Client table is not configured properly.');
+  }
+
+  try {
+    // Convert isPinned to a boolean if it's not already
+    const pinnedStatus = Boolean(isPinned);
+
+    console.log('Updating client:', clientId, 'with pinnedStatus:', pinnedStatus);
+    const updatedRecord = await clientTable.update(clientId, {
+      'pinnedClient': pinnedStatus,  // Changed to 'pinnedClient'
+    });
+
+    console.log('Updated record:', updatedRecord);  // Log the updated record for debugging
+
+    return {
+      id: updatedRecord.id,
+      name: updatedRecord.fields.Client,
+      status: updatedRecord.fields.Status,
+      lastUpdated: updatedRecord.fields['Last Modified'],
+      isPinned: updatedRecord.fields.pinnedClient || false,  // Changed to 'pinnedClient'
+      lifecycleStage: updatedRecord.fields['Lifecycle Stage'] || 'Unknown',
+    };
+  } catch (error) {
+    console.error('Error updating client pinned status:', error);
+    console.error('Error details:', error.message, error.response?.data);
+    throw error;
+  }
+};
+
 export const updateClientStatus = async (clientId, newStatus) => {
+  if (!clientTable) {
+    console.error('Client table is not configured properly.');
+    throw new Error('Client table is not configured properly.');
+  }
+
   try {
     const updatedRecord = await clientTable.update(clientId, {
       Status: newStatus,
     });
     return {
       id: updatedRecord.id,
-      name: updatedRecord.get('Name'),
-      Status: updatedRecord.get('Status'),
-      lastUpdated: updatedRecord.get('Last Modified'),
-      // Add any other fields you need
+      name: updatedRecord.fields.Client,
+      status: updatedRecord.fields.Status,
+      lastUpdated: updatedRecord.fields['Last Modified'],
+      isPinned: updatedRecord.fields.pinnedClient || false,
+      lifecycleStage: updatedRecord.fields['Lifecycle Stage'] || 'Unknown',
     };
   } catch (error) {
     console.error('Error updating client status:', error);

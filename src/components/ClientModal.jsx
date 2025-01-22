@@ -25,6 +25,8 @@ import { format } from 'date-fns';
 import EditableClientStatus from './EditableClientStatus';
 import TaskModal from './TaskModal';
 import { useStatusConfig } from '../contexts/StatusContext';
+import { updateClientPinnedStatus } from '../airtableConfig';
+import { StarIcon } from '@chakra-ui/icons';
 
 const convertNewlinesToBreaks = (text) => {
   return text.split('\n').map((line, index) => (
@@ -35,7 +37,7 @@ const convertNewlinesToBreaks = (text) => {
   ));
 };
 
-const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate }) => {
+const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate, onPinUpdate }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(isOpen);
@@ -119,6 +121,31 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
     }
   };
 
+  const handlePinToggle = async () => {
+    try {
+      const updatedClient = await updateClientPinnedStatus(localClient.id, !localClient.isPinned);
+      setLocalClient(prevClient => ({ ...prevClient, isPinned: updatedClient.isPinned }));
+      if (onPinUpdate) {
+        onPinUpdate(updatedClient);
+      }
+      toast({
+        title: localClient.isPinned ? "Client Unpinned" : "Client Pinned",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error toggling pin status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update pin status. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleStatusFilter = (status) => {
     let newActiveStatuses;
     if (activeStatuses.includes(status)) {
@@ -161,20 +188,39 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
       >
         <ModalOverlay />
         <ModalContent maxHeight="80vh">
-          <ModalHeader>{client.name}</ModalHeader>
+          <ModalHeader>
+            <Flex justifyContent="space-between" alignItems="center">
+              {client.name}
+
+            </Flex>
+          </ModalHeader>
           <ModalCloseButton />
           <ModalBody overflowY="auto">
             <VStack align="stretch" spacing={4}>
-              <Box>
+            <Box>
                 <Flex justifyContent="space-between" alignItems="center" mb={2}>
-                  <Heading as="h4" size="md" mb={2}>Client Status</Heading>
+                  <Heading as="h4" size="md">Client Status</Heading>
                   <Text fontSize="sm" color="gray.600">Last update: {formatDate(client.lastUpdated)}</Text>
                 </Flex>
-                <EditableClientStatus
-                  status={localClient.Status}
-                  displayStatus={localClient.Status}
-                  onStatusUpdate={handleStatusUpdate}
-                />
+                <Flex justifyContent="space-between" alignItems="center">
+                  <Box flex="1">
+                    <EditableClientStatus
+                      status={localClient.Status}
+                      displayStatus={localClient.Status}
+                      onStatusUpdate={handleStatusUpdate}
+                    />
+                  </Box>
+                  <Button
+                    onClick={handlePinToggle}
+                    leftIcon={<StarIcon />}
+                    variant={localClient.isPinned ? "solid" : "outline"}
+                    colorScheme="gray"
+                    size="sm"
+                    ml={2}
+                  >
+                    {localClient.isPinned ? "Unpin" : "Pin"}
+                  </Button>
+                </Flex>
               </Box>
               <Divider orientation='horizontal' />
               <Box>
