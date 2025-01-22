@@ -89,6 +89,24 @@ const TaskList = () => {
     }
   };
 
+  const onTasksUpdate = useCallback((updatedTask) => {
+    console.log('onTasksUpdate called with:', updatedTask);
+
+    setTasks(prevTasks => {
+      const newTasks = prevTasks.map(task =>
+        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+      );
+      console.log('Updated tasks:', newTasks);
+      return newTasks;
+    });
+
+    // Update the selectedTask to reflect changes
+    setSelectedTask(prev => (prev && prev.id === updatedTask.id ? { ...prev, ...updatedTask } : prev));
+
+    // Force a re-render by updating the updateTrigger
+    setUpdateTrigger(prev => prev + 1);
+  }, []);
+  
   const handleTaskUpdate = useCallback((updatedTask) => {
     console.log('handleTaskUpdate called with:', updatedTask);
 
@@ -309,7 +327,7 @@ const TaskList = () => {
                                 }
                               }}
                               mr={1}
-                              color={pinnedClients.includes(clientName) ? "yellow.500" : "gray.300"}
+                              color={pinnedClients.includes(clientName) ? "#CA3FC0" : "gray.300"}
                             />
                             <IconButton
                               aria-label="Open client details"
