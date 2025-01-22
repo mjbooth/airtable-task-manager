@@ -37,33 +37,31 @@ const convertNewlinesToBreaks = (text) => {
   ));
 };
 
-const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate, onPinUpdate }) => {
+const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpdate }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(isOpen);
   const [localClient, setLocalClient] = useState(client);
   const toast = useToast();
-  const [activeStatuses, setActiveStatuses] = useState([]);
+  const [activeStatuses, setActiveStatuses] = useState(() => {
+    if (tasks) {
+      const allStatuses = [...new Set(tasks.map(task => task.Status))];
+      return allStatuses.filter(status => !['Completed', 'Cancelled'].includes(status));
+    }
+    return [];
+  });
   const [filteredTasks, setFilteredTasks] = useState([]);
   const statusConfig = useStatusConfig();
 
   useEffect(() => {
-    setIsClientModalOpen(isOpen);
-    setLocalClient(client);
-  }, [isOpen, client]);
-
-  useEffect(() => {
-    console.log('ClientModal props:', { isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate });
-  }, [isOpen, onClose, client, tasks, getStatusColor, onStatusUpdate]);
+  }, [isOpen, onClose, client, tasks, onStatusUpdate]);
 
   useEffect(() => {
     if (tasks) {
-      const statuses = [...new Set(tasks.map(task => task.Status))];
-      setActiveStatuses(statuses.filter(status => status !== "Completed"));
-      const filteredAndSortedTasks = sortTasksByDueDate(tasks.filter(task => task.Status !== "Completed"));
-      setFilteredTasks(filteredAndSortedTasks);
+      const filtered = tasks.filter(task => activeStatuses.includes(task.Status));
+      setFilteredTasks(sortTasksByDueDate(filtered));
     }
-  }, [tasks]);
+  }, [tasks, activeStatuses]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No update time available';
@@ -147,22 +145,33 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
   };
 
   const handleStatusFilter = (status) => {
-    let newActiveStatuses;
-    if (activeStatuses.includes(status)) {
-      newActiveStatuses = activeStatuses.filter(s => s !== status);
-    } else {
-      newActiveStatuses = [...activeStatuses, status];
-    }
-    setActiveStatuses(newActiveStatuses);
-
-    const newFilteredTasks = sortTasksByDueDate(tasks.filter(task => newActiveStatuses.includes(task.Status)));
-    setFilteredTasks(newFilteredTasks);
+    setActiveStatuses(prevActiveStatuses => {
+      if (prevActiveStatuses.includes(status)) {
+        return prevActiveStatuses.filter(s => s !== status);
+      } else {
+        const newActiveStatuses = [...prevActiveStatuses, status];
+        // If 'Completed' or 'Cancelled' is being added, remove it from the inactive list
+        if (['Completed', 'Cancelled'].includes(status)) {
+          return newActiveStatuses;
+        }
+        return newActiveStatuses;
+      }
+    });
   };
 
   // Function to get the hex color for a given status
   const getStatusHexColor = (statusName) => {
-    const statusEntry = Object.values(statusConfig).find(entry => entry.status === statusName);
-    return statusEntry ? statusEntry.hexColor : 'gray.200';
+    if (!statusConfig) {
+      console.warn('StatusConfig is not available');
+      return 'gray.200';
+    }
+    const statusEntry = Object.values(statusConfig).find(entry => entry.status.toLowerCase() === statusName.toLowerCase());
+    if (!statusEntry || !statusEntry.hexColor) {
+      console.warn(`No valid color found for status: ${statusName}`);
+      return 'gray.200';
+    }
+    // Ensure the hexColor is a valid color string
+    return statusEntry.hexColor.startsWith('#') ? statusEntry.hexColor : `#${statusEntry.hexColor}`;
   };
 
   const sortTasksByDueDate = (tasksToSort) => {
@@ -197,7 +206,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
           <ModalCloseButton />
           <ModalBody overflowY="auto">
             <VStack align="stretch" spacing={4}>
-            <Box>
+              <Box>
                 <Flex justifyContent="space-between" alignItems="center" mb={2}>
                   <Heading as="h4" size="md">Client Status</Heading>
                   <Text fontSize="sm" color="gray.600">Last update: {formatDate(client.lastUpdated)}</Text>
@@ -226,39 +235,48 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
               <Box>
                 <Heading as="h4" size="md" mb={2}>Tasks</Heading>
                 <HStack spacing={2} mb={4} wrap="wrap">
-                  <Tag
-                    key="Completed"
-                    size="md"
-                    borderRadius="full"
-                    variant={activeStatuses.includes("Completed") ? "solid" : "outline"}
-                    bg={activeStatuses.includes("Completed") ? getStatusHexColor("Completed") : "transparent"}
-                    color={activeStatuses.includes("Completed") ? "black" : getStatusHexColor("Completed")}
-                    borderColor={getStatusHexColor("Completed")}
-                    cursor="pointer"
-                    onClick={() => handleStatusFilter("Completed")}
-                  >
-                    <TagLabel>Completed</TagLabel>
-                  </Tag>
-                  {tasks && [...new Set(tasks.map(task => task.Status))]
-                    .filter(status => status !== "Completed")
-                    .map(status => (
-                      <Tag
-                        key={status}
-                        size="md"
-                        borderRadius="full"
-                        variant={activeStatuses.includes(status) ? "solid" : "outline"}
-                        bg={activeStatuses.includes(status) ? getStatusHexColor(status) : "transparent"}
-                        color={activeStatuses.includes(status) ? "black" : getStatusHexColor(status)}
-                        borderColor={getStatusHexColor(status)}
-                        cursor="pointer"
-                        onClick={() => handleStatusFilter(status)}
-                      >
-                        <TagLabel>{status}</TagLabel>
-                      </Tag>
-                    ))}
+                  {tasks && (
+                    <>
+                      {['Completed', 'Cancelled'].map(status =>
+                        tasks.some(task => task.Status === status) && (
+                          <Tag
+                            key={status}
+                            size="md"
+                            borderRadius="full"
+                            variant={activeStatuses.includes(status) ? "solid" : "outline"}
+                            bg={activeStatuses.includes(status) ? getStatusHexColor(status) : "transparent"}
+                            color={activeStatuses.includes(status) ? "black" : getStatusHexColor(status)}
+                            borderColor={getStatusHexColor(status)}
+                            cursor="pointer"
+                            onClick={() => handleStatusFilter(status)}
+                          >
+                            <TagLabel>{status}</TagLabel>
+                          </Tag>
+                        )
+                      )}
+                      {[...new Set(tasks.map(task => task.Status))]
+                        .filter(status => !['Completed', 'Cancelled'].includes(status))
+                        .map(status => (
+                          <Tag
+                            key={status}
+                            size="md"
+                            borderRadius="full"
+                            variant={activeStatuses.includes(status) ? "solid" : "outline"}
+                            bg={activeStatuses.includes(status) ? getStatusHexColor(status) : "transparent"}
+                            color={activeStatuses.includes(status) ? "black" : getStatusHexColor(status)}
+                            borderColor={getStatusHexColor(status)}
+                            cursor="pointer"
+                            onClick={() => handleStatusFilter(status)}
+                          >
+                            <TagLabel>{status}</TagLabel>
+                          </Tag>
+                        ))
+                      }
+                    </>
+                  )}
                 </HStack>
                 <VStack align="stretch" spacing={4}>
-                  {filteredTasks && filteredTasks.length > 0 ? filteredTasks.map(task => (
+                {filteredTasks && filteredTasks.length > 0 ? sortTasksByDueDate(filteredTasks).map(task => (
                     <Box
                       key={task.id}
                       p={3}
@@ -272,7 +290,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, getStatusColor, onStatusU
                       <VStack align="start" spacing={4}>
                         <Heading as="h5" size="sm">{task.Name}</Heading>
                         <Badge
-                          bg={getStatusColor(task.Status)}
+                          bg={getStatusHexColor(task.Status)}
                           color="black"
                           fontSize="sm"
                           px={2}

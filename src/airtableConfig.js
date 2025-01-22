@@ -6,14 +6,6 @@ const taskTableId = import.meta.env.VITE_AIRTABLE_TABLE_ID;
 const clientTableId = import.meta.env.VITE_AIRTABLE_CLIENT_TABLE_ID;
 const statusConfigTableId = import.meta.env.VITE_AIRTABLE_CONFIG_STATUS_COLOURS;
 
-console.log('Environment Variables:');
-console.log('PAT:', pat ? 'Set' : 'Not set');
-console.log('Base ID:', baseId);
-console.log('Task Table ID:', taskTableId);
-console.log('Client Table ID:', clientTableId);
-console.log('Status Config Table ID:', statusConfigTableId ? 'Set' : 'Not set');
-console.log('Status Config Table ID:', statusConfigTableId);
-
 if (!pat || !baseId || !taskTableId || !clientTableId) {
   console.error('Missing Airtable configuration. Please check your .env file.');
   if (!pat) console.error('VITE_AIRTABLE_PAT is missing');
@@ -35,9 +27,7 @@ export const fetchTasks = async () => {
   }
 
   try {
-    console.log('Fetching tasks...');
     const records = await taskTable.select().all();
-    console.log(`Fetched ${records.length} tasks`);
     return records.map(record => ({
       id: record.id,
       ...record.fields,
@@ -81,13 +71,9 @@ export const updateClientPinnedStatus = async (clientId, isPinned) => {
   try {
     // Convert isPinned to a boolean if it's not already
     const pinnedStatus = Boolean(isPinned);
-
-    console.log('Updating client:', clientId, 'with pinnedStatus:', pinnedStatus);
     const updatedRecord = await clientTable.update(clientId, {
       'pinnedClient': pinnedStatus,  // Changed to 'pinnedClient'
     });
-
-    console.log('Updated record:', updatedRecord);  // Log the updated record for debugging
 
     return {
       id: updatedRecord.id,

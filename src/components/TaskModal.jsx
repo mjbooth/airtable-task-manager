@@ -90,18 +90,12 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
         updatedTask = await updateTask(taskToSave);
       }
 
-      console.log('Airtable response:', JSON.stringify(updatedTask, null, 2));
-
-      // Create a new object that combines the Airtable response with any local changes
       const updatedTaskData = {
         ...editedTask,  // Include any local changes
         ...updatedTask.fields,  // Overwrite with the response from Airtable
         id: updatedTask.id
       };
 
-      console.log('Updated task data:', JSON.stringify(updatedTaskData, null, 2));
-
-      // Fetch the owner name if it exists
       if (updatedTaskData.AssignedOwner && updatedTaskData.AssignedOwner.length > 0) {
         await fetchOwnerName(updatedTaskData.AssignedOwner[0]);
       }
@@ -206,7 +200,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
   const updateExistingTaskStatus = async (newStatus) => {
     try {
       const updatedTask = await updateTask({ ...task, Status: newStatus });
-      console.log('Task updated successfully:', updatedTask);
       toast({
         title: "Status updated",
         description: `Task status changed to ${newStatus}`,
@@ -234,10 +227,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
     }
 
     try {
-      console.log('Fetching owner name for ID:', ownerId);
       const url = `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}/${ownerId}`;
-      console.log('Request URL:', url);
-
       const response = await axios.get(url, {
         headers: {
           Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
@@ -247,7 +237,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
       if (response.data && response.data.fields && response.data.fields.Name) {
         setOwnerName(response.data.fields.Name);
       } else {
-        console.log('Unexpected response structure:', response.data);
         setOwnerName('Unknown');
       }
     } catch (error) {

@@ -25,6 +25,7 @@ import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
 import { useTheme } from '@chakra-ui/react';
 import { StarIcon } from '@chakra-ui/icons';
+import { useStatusConfig } from '../contexts/StatusContext';
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([]);
@@ -39,6 +40,7 @@ const TaskList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0);
   const [pinnedClients, setPinnedClients] = useState([]);
+  const statusConfig = useStatusConfig();
 
   const theme = useTheme();
 
@@ -83,20 +85,16 @@ const TaskList = () => {
           : prev.filter(name => name !== client.name)
       );
 
-      console.log(`Client ${client.name} ${newPinnedStatus ? 'pinned' : 'unpinned'}`);
     } catch (error) {
       console.error('Error toggling pinned status:', error);
     }
   };
 
   const onTasksUpdate = useCallback((updatedTask) => {
-    console.log('onTasksUpdate called with:', updatedTask);
-
     setTasks(prevTasks => {
       const newTasks = prevTasks.map(task =>
         task.id === updatedTask.id ? { ...task, ...updatedTask } : task
       );
-      console.log('Updated tasks:', newTasks);
       return newTasks;
     });
 
@@ -106,15 +104,12 @@ const TaskList = () => {
     // Force a re-render by updating the updateTrigger
     setUpdateTrigger(prev => prev + 1);
   }, []);
-  
-  const handleTaskUpdate = useCallback((updatedTask) => {
-    console.log('handleTaskUpdate called with:', updatedTask);
 
+  const handleTaskUpdate = useCallback((updatedTask) => {
     setTasks(prevTasks => {
       const newTasks = prevTasks.map(task =>
         task.id === updatedTask.id ? { ...task, ...updatedTask } : task
       );
-      console.log('Updated tasks:', newTasks);
       return newTasks;
     });
 
@@ -165,7 +160,7 @@ const TaskList = () => {
   const groupTasksByLifecycleStageAndClient = (tasks) => {
     const grouped = tasks.reduce((acc, task) => {
       const { name: clientName, lifecycleStage } = getClientInfo(task.Client);
-  
+
       if (!acc[lifecycleStage]) {
         acc[lifecycleStage] = {};
       }
@@ -175,7 +170,7 @@ const TaskList = () => {
       acc[lifecycleStage][clientName].push(task);
       return acc;
     }, {});
-  
+
     // Add pinned clients with no tasks
     pinnedClients.forEach(clientName => {
       const { lifecycleStage } = getClientInfo(clientName);
@@ -186,14 +181,14 @@ const TaskList = () => {
         grouped[lifecycleStage][clientName] = [];
       }
     });
-  
+
     // Sort clients alphabetically within each lifecycle stage
     Object.keys(grouped).forEach(stage => {
       grouped[stage] = Object.entries(grouped[stage])
         .sort(([a], [b]) => a.localeCompare(b))
         .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
     });
-  
+
     return grouped;
   };
 
@@ -405,6 +400,10 @@ const TaskList = () => {
           onClose={() => setIsClientModalOpen(false)}
           client={selectedClient}
           onOpenTaskModal={handleTaskClick}
+          tasks={tasks.filter(task => task.Client === selectedClient.name)}
+          statusConfig={statusConfig}
+          onStatusUpdate={onTasksUpdate}
+          onPinUpdate={togglePinnedClient}
         />
       )}
       {selectedTask && (

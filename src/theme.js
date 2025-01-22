@@ -35,16 +35,13 @@ const theme = extendTheme({
 });
 
 export const updateThemeColors = (statusConfig) => {
-  console.log('Updating theme colors with:', statusConfig); // Debug log
   Object.values(statusConfig).forEach((status) => {
     if (status && status.hexColor) {
-      console.log(`Setting color for status ${status.status}:`, status.hexColor); // Debug log
       theme.colors.status[status.status] = status.hexColor;
     } else {
       console.warn(`Missing color for status: ${status.status}`);
     }
   });
-  console.log('Updated theme colors:', theme.colors.status); // Debug log
 };
 
 export default theme;
