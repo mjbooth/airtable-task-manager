@@ -147,7 +147,7 @@ const TaskList = () => {
   const groupTasksByLifecycleStageAndClient = (tasks) => {
     const grouped = tasks.reduce((acc, task) => {
       const { name: clientName, lifecycleStage } = getClientInfo(task.Client);
-
+  
       if (!acc[lifecycleStage]) {
         acc[lifecycleStage] = {};
       }
@@ -157,14 +157,25 @@ const TaskList = () => {
       acc[lifecycleStage][clientName].push(task);
       return acc;
     }, {});
-
+  
+    // Add pinned clients with no tasks
+    pinnedClients.forEach(clientName => {
+      const { lifecycleStage } = getClientInfo(clientName);
+      if (!grouped[lifecycleStage]) {
+        grouped[lifecycleStage] = {};
+      }
+      if (!grouped[lifecycleStage][clientName]) {
+        grouped[lifecycleStage][clientName] = [];
+      }
+    });
+  
     // Sort clients alphabetically within each lifecycle stage
     Object.keys(grouped).forEach(stage => {
       grouped[stage] = Object.entries(grouped[stage])
         .sort(([a], [b]) => a.localeCompare(b))
         .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
     });
-
+  
     return grouped;
   };
 
@@ -234,11 +245,11 @@ const TaskList = () => {
         </FormControl>
       </Flex>
       <Box
-        height="calc(100vh - 144px)" // Adjusted for top nav and padding
-        width="calc(100vw - 260px)" // Adjusted for left nav
+        height="calc(100vh - 144px)"
+        width="calc(100vw - 260px)"
         position="absolute"
         right="0"
-        paddingLeft="20px" // Add some padding on the left
+        paddingLeft="20px"
         overflowX="auto"
         overflowY="hidden"
       >
@@ -261,11 +272,18 @@ const TaskList = () => {
               <Heading as="h3" size="md" mb={4} textAlign="left">{lifecycleStage}</Heading>
               <VStack spacing={4} align="stretch">
                 {Object.entries(clientTasks)
+                  .concat(
+                    pinnedClients
+                      .filter(clientName => {
+                        const client = clients.find(c => c.name === clientName);
+                        return client && client.lifecycleStage === lifecycleStage && !clientTasks[clientName];
+                      })
+                      .map(clientName => [clientName, []])
+                  )
                   .sort(([a], [b]) => {
-                    // Sort pinned clients to the top
                     if (pinnedClients.includes(a) && !pinnedClients.includes(b)) return -1;
                     if (!pinnedClients.includes(a) && pinnedClients.includes(b)) return 1;
-                    return a.localeCompare(b); // Alphabetical sort for the rest
+                    return a.localeCompare(b);
                   })
                   .map(([clientName, tasks]) => (
                     <Box key={clientName} borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" boxShadow="sm">
@@ -307,47 +325,51 @@ const TaskList = () => {
                           </Flex>
                           <AccordionPanel pb={4}>
                             <VStack spacing={4} align="stretch">
-                              {tasks.map(task => (
-                                <Box
-                                  key={task.id}
-                                  p={3}
-                                  borderWidth="1px"
-                                  borderRadius="md"
-                                  bg="gray.50"
-                                  onClick={() => handleTaskClick(task)}
-                                >
-                                  <VStack align="start" spacing={4}>
-                                    <Flex justify="space-between" width="100%" alignItems="center">
-                                      <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
-                                      <Badge
-                                        bg={getStatusColor(task.Status)}
-                                        color="black"  // Add this line to set the text color
-                                        fontSize="xs"
-                                        px={2}
-                                        py={1}
-                                        ml={1}
-                                        borderRadius="full"
-                                        textTransform="none" // Add this line to prevent uppercase transformation
-                                      >
-                                        {task.Status}
-                                      </Badge>
-                                    </Flex>
-                                    <Flex align="left" justify="space-between" width="100%">
-                                      <Tooltip label={task.Owner || 'Unassigned'}>
-                                        <Avatar
-                                          size="xs"
-                                          name={task.Owner || 'Unassigned'}
-                                          bg={task.Owner ? "blue.500" : "gray.500"}
-                                          color="white"
-                                        />
-                                      </Tooltip>
-                                      {task.DueDate && (
-                                        <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
-                                      )}
-                                    </Flex>
-                                  </VStack>
-                                </Box>
-                              ))}
+                              {tasks.length > 0 ? (
+                                tasks.map(task => (
+                                  <Box
+                                    key={task.id}
+                                    p={3}
+                                    borderWidth="1px"
+                                    borderRadius="md"
+                                    bg="gray.50"
+                                    onClick={() => handleTaskClick(task)}
+                                  >
+                                    <VStack align="start" spacing={4}>
+                                      <Flex justify="space-between" width="100%" alignItems="center">
+                                        <Heading textAlign="left" as="h5" size="xs">{task.Name}</Heading>
+                                        <Badge
+                                          bg={getStatusColor(task.Status)}
+                                          color="black"
+                                          fontSize="xs"
+                                          px={2}
+                                          py={1}
+                                          ml={1}
+                                          borderRadius="full"
+                                          textTransform="none"
+                                        >
+                                          {task.Status}
+                                        </Badge>
+                                      </Flex>
+                                      <Flex align="left" justify="space-between" width="100%">
+                                        <Tooltip label={task.Owner || 'Unassigned'}>
+                                          <Avatar
+                                            size="xs"
+                                            name={task.Owner || 'Unassigned'}
+                                            bg={task.Owner ? "blue.500" : "gray.500"}
+                                            color="white"
+                                          />
+                                        </Tooltip>
+                                        {task.DueDate && (
+                                          <Text fontSize="small">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
+                                        )}
+                                      </Flex>
+                                    </VStack>
+                                  </Box>
+                                ))
+                              ) : (
+                                <Text color="gray.500">No tasks for this client</Text>
+                              )}
                             </VStack>
                           </AccordionPanel>
                         </AccordionItem>
@@ -363,10 +385,8 @@ const TaskList = () => {
         <ClientModal
           isOpen={isClientModalOpen}
           onClose={() => setIsClientModalOpen(false)}
-          client={clients.find(c => c.id === selectedClient.id)}
-          tasks={tasks.filter(task => task.Client === selectedClient.name)}
-          getStatusColor={getStatusColor}
-          onStatusUpdate={handleClientStatusUpdate}
+          client={selectedClient}
+          onOpenTaskModal={handleTaskClick}
         />
       )}
       {selectedTask && (
@@ -374,9 +394,8 @@ const TaskList = () => {
           isOpen={isTaskModalOpen}
           onClose={() => setIsTaskModalOpen(false)}
           task={selectedTask}
-          getStatusColor={getStatusColor}
           onOpenClientModal={handleOpenClientModal}
-          onTasksUpdate={handleTaskUpdate}
+          onTasksUpdate={onTasksUpdate}
         />
       )}
     </Box>
