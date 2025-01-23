@@ -46,10 +46,46 @@ const SettingsPage = () => {
 
   return (
     <Box p={4}>
-      <Tabs variant="enclosed">
-        <TabList>
-          <Tab>Status Colours</Tab>
-          <Tab>Client List</Tab>
+      <Tabs variant="unstyled">
+        <TabList borderBottom="1px" borderColor="gray.200">
+          <Tab
+            color="gray.600"
+            _selected={{
+              color: "blue.500",
+              borderBottom: "2px solid",
+              borderColor: "blue.500",
+              fontWeight: "bold",
+            }}
+            _hover={{
+              color: "blue.400",
+            }}
+            borderBottom="2px solid"
+            borderColor="transparent"
+            px={4}
+            py={2}
+            transition="all 0.2s"
+          >
+            Status Colours
+          </Tab>
+          <Tab
+            color="gray.600"
+            _selected={{
+              color: "blue.500",
+              borderBottom: "2px solid",
+              borderColor: "blue.500",
+              fontWeight: "bold",
+            }}
+            _hover={{
+              color: "blue.400",
+            }}
+            borderBottom="2px solid"
+            borderColor="transparent"
+            px={4}
+            py={2}
+            transition="all 0.2s"
+          >
+            Client List
+          </Tab>
         </TabList>
         <TabPanels>
           <TabPanel>

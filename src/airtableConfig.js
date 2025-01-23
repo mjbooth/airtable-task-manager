@@ -5,13 +5,15 @@ const baseId = import.meta.env.VITE_AIRTABLE_BASE_ID;
 const taskTableId = import.meta.env.VITE_AIRTABLE_TABLE_ID;
 const clientTableId = import.meta.env.VITE_AIRTABLE_CLIENT_TABLE_ID;
 const statusConfigTableId = import.meta.env.VITE_AIRTABLE_CONFIG_STATUS_COLOURS;
+const lifecycleStagesTableId = import.meta.env.VITE_AIRTABLE_LIFECYCLE_STAGES_TABLE_ID;
 
-if (!pat || !baseId || !taskTableId || !clientTableId) {
+if (!pat || !baseId || !taskTableId || !clientTableId || !lifecycleStagesTableId) {
   console.error('Missing Airtable configuration. Please check your .env file.');
   if (!pat) console.error('VITE_AIRTABLE_PAT is missing');
   if (!baseId) console.error('VITE_AIRTABLE_BASE_ID is missing');
   if (!taskTableId) console.error('VITE_AIRTABLE_TABLE_ID is missing');
   if (!clientTableId) console.error('VITE_AIRTABLE_CLIENT_TABLE_ID is missing');
+  if (!lifecycleStagesTableId) console.error('VITE_AIRTABLE_LIFECYCLE_STAGES_TABLE_ID is missing');
 }
 
 Airtable.configure({ endpointUrl: 'https://api.airtable.com', apiKey: pat });
@@ -19,6 +21,7 @@ Airtable.configure({ endpointUrl: 'https://api.airtable.com', apiKey: pat });
 const base = Airtable.base(baseId);
 const taskTable = taskTableId ? base(taskTableId) : null;
 const clientTable = clientTableId ? base(clientTableId) : null;
+const lifecycleStagesTable = lifecycleStagesTableId ? base(lifecycleStagesTableId) : null;
 
 export const fetchTasks = async () => {
   if (!taskTable) {
@@ -39,25 +42,119 @@ export const fetchTasks = async () => {
   }
 };
 
-export const fetchClients = async () => {
+export const createClient = async (clientData) => {
   if (!clientTable) {
     console.error('Client table is not configured properly.');
     throw new Error('Client table is not configured properly.');
   }
 
   try {
-    const records = await clientTable.select().all();
-    return records.map(record => ({
+    const createdRecord = await clientTable.create({
+      Client: clientData.name,
+      lifecycleStage: clientData.lifecycleStageId ? [clientData.lifecycleStageId] : undefined,
+      Status: clientData.status || 'New',
+      pinnedClient: false,
+    });
+
+    console.log('Client created successfully:', createdRecord);
+
+    return {
+      id: createdRecord.id,
+      name: createdRecord.fields.Client,
+      lifecycleStageId: createdRecord.fields.lifecycleStage ? createdRecord.fields.lifecycleStage[0] : null,
+      status: createdRecord.fields.Status,
+      lastUpdated: createdRecord.fields['Last Modified'],
+      isPinned: createdRecord.fields.pinnedClient || false,
+    };
+  } catch (error) {
+    console.error('Error creating client:', error);
+    throw error;
+  }
+};
+
+export const fetchLifecycleStages = async () => {
+  if (!lifecycleStagesTable) {
+    console.error('Lifecycle stages table is not configured properly.');
+    throw new Error('Lifecycle stages table is not configured properly.');
+  }
+
+  try {
+    const records = await lifecycleStagesTable.select().all();
+    const stages = records.map(record => ({
       id: record.id,
-      name: record.fields.Client,
-      lifecycleStage: record.fields['Lifecycle Stage'] || 'Unknown',
-      status: record.fields.Status,
-      lastUpdated: record.fields['Last Updated'],
-      isPinned: record.fields.pinnedClient || false, // This line is correct
-      ...record.fields,
+      name: record.fields.stageName,
+      order: record.fields.order || 0, // Default to 0 if order is not set
     }));
+
+    // Sort the stages based on the order field
+    return stages.sort((a, b) => a.order - b.order);
+  } catch (error) {
+    console.error("Error fetching lifecycle stages:", error);
+    throw error;
+  }
+};
+
+export const fetchClients = async () => {
+  if (!clientTable || !lifecycleStagesTable) {
+    console.error('Client table or Lifecycle Stages table is not configured properly.');
+    throw new Error('Client table or Lifecycle Stages table is not configured properly.');
+  }
+
+  try {
+    // First, fetch all lifecycle stages
+    const lifecycleStages = await fetchLifecycleStages();
+    const stagesMap = new Map(lifecycleStages.map(stage => [stage.id, { name: stage.name, order: stage.order }]));
+
+    // Now fetch clients
+    const records = await clientTable.select().all();
+    return records.map(record => {
+      const lifecycleStageId = record.fields.lifecycleStage && record.fields.lifecycleStage[0];
+      const lifecycleStage = lifecycleStageId ? stagesMap.get(lifecycleStageId) : null;
+      return {
+        id: record.id,
+        name: record.fields.Client,
+        lifecycleStageId: lifecycleStageId,
+        lifecycleStageName: lifecycleStage ? lifecycleStage.name : null,
+        lifecycleStageOrder: lifecycleStage ? lifecycleStage.order : null,
+        status: record.fields.Status,
+        lastUpdated: record.fields['Last Updated'],
+        isPinned: record.fields.pinnedClient || false,
+        ...record.fields,
+      };
+    });
   } catch (error) {
     console.error("Error fetching clients:", error);
+    throw error;
+  }
+};
+// Add a function to update the client's lifecycle stage
+export const updateClientLifecycleStage = async (clientId, lifecycleStageId) => {
+  if (!clientTable) {
+    console.error('Client table is not configured properly.');
+    throw new Error('Client table is not configured properly.');
+  }
+
+  try {
+    // Log the update attempt
+    console.log(`Attempting to update client ${clientId} with lifecycle stage ${lifecycleStageId}`);
+
+    const updatedRecord = await clientTable.update(clientId, {
+      'lifecycleStage': [lifecycleStageId], // Corrected field name
+    });
+
+    console.log('Updated record:', updatedRecord);
+
+    return {
+      id: updatedRecord.id,
+      name: updatedRecord.fields.Client,
+      lifecycleStageId: updatedRecord.fields.lifecycleStage ? updatedRecord.fields.lifecycleStage[0] : null,
+      status: updatedRecord.fields.Status,
+      lastUpdated: updatedRecord.fields['Last Modified'],
+      isPinned: updatedRecord.fields.pinnedClient || false,
+    };
+  } catch (error) {
+    console.error('Error updating client lifecycle stage:', error);
+    console.error('Error details:', error.message, error.response?.data);
     throw error;
   }
 };

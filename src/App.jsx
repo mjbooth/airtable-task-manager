@@ -3,7 +3,7 @@ import { ChakraProvider, Flex, Box, Button, Text } from '@chakra-ui/react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import LeftNavBar from './components/LeftNavBar';
 import TaskList from './components/TaskList';
-import TaskModal from './components/TaskModal';  // Import TaskModal
+import TaskModal from './components/TaskModal';
 import { FaPlus, FaSync } from 'react-icons/fa';
 import theme from './theme';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -45,10 +45,10 @@ function App() {
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <StatusProvider>
           <Router>
-            <Flex>
+            <Flex h="100vh">
               <LeftNavBar />
-              <Box flex={1}>
-                <Flex justifyContent="flex-end" p={4}>
+              <Box flex={1} overflowY="auto">
+                <Flex justifyContent="flex-end" p={4} position="sticky" top={0} bg="white" zIndex={1}>
                   <Button leftIcon={<FaPlus />} colorScheme="gray" mr={2} onClick={handleNewTask}>
                     Create
                   </Button>

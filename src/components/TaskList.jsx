@@ -20,7 +20,7 @@ import {
 } from '@chakra-ui/react';
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
 import { BsThreeDots } from 'react-icons/bs';
-import { fetchTasks, fetchClients, updateClientStatus, updateTask, updateClientPinnedStatus } from '../airtableConfig';
+import { fetchTasks, fetchClients, updateClientStatus, updateTask, updateClientPinnedStatus, fetchLifecycleStages } from '../airtableConfig';
 import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
 import { useTheme } from '@chakra-ui/react';
@@ -41,18 +41,28 @@ const TaskList = () => {
   const [updateTrigger, setUpdateTrigger] = useState(0);
   const [pinnedClients, setPinnedClients] = useState([]);
   const statusConfig = useStatusConfig();
+  const [lifecycleStages, setLifecycleStages] = useState([]);
 
   const theme = useTheme();
 
   const getData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fetchedTasks, fetchedClients] = await Promise.all([fetchTasks(), fetchClients()]);
+      const [fetchedTasks, fetchedClients, fetchedLifecycleStages] = await Promise.all([
+        fetchTasks(),
+        fetchClients(),
+        fetchLifecycleStages()
+      ]);
       setTasks(fetchedTasks);
       setClients(fetchedClients);
-      // Update pinnedClients state
+      setLifecycleStages(fetchedLifecycleStages);
       setPinnedClients(fetchedClients.filter(client => client.isPinned).map(client => client.name));
       setError(null);
+
+      // Debugging logs
+      console.log('Fetched tasks:', fetchedTasks);
+      console.log('Fetched clients:', fetchedClients);
+      console.log('Fetched lifecycle stages:', fetchedLifecycleStages);
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to fetch data. Please check your Airtable configuration.");
@@ -154,41 +164,64 @@ const TaskList = () => {
 
   const getClientInfo = (clientName) => {
     const client = clients.find(c => c.name === clientName);
-    return client ? { name: client.name, lifecycleStage: client.lifecycleStage } : { name: clientName, lifecycleStage: 'Unknown' };
+    if (client) {
+      console.log('Client info:', client);
+      let lifecycleStageName = 'Unknown';
+      if (client.lifecycleStage && client.lifecycleStage.length > 0) {
+        const lifecycleStage = lifecycleStages.find(stage => stage.id === client.lifecycleStage[0]);
+        lifecycleStageName = lifecycleStage ? lifecycleStage.name : 'Unknown';
+      } else if (client.clientLifecycleStage && client.clientLifecycleStage.length > 0) {
+        lifecycleStageName = client.clientLifecycleStage[0];
+      }
+      return { 
+        name: client.name, 
+        lifecycleStageId: client.lifecycleStage ? client.lifecycleStage[0] : null,
+        lifecycleStageName: lifecycleStageName
+      };
+    } else {
+      console.log('Client not found:', clientName);
+      return { name: clientName, lifecycleStageId: null, lifecycleStageName: 'Unknown' };
+    }
   };
 
   const groupTasksByLifecycleStageAndClient = (tasks) => {
     const grouped = tasks.reduce((acc, task) => {
-      const { name: clientName, lifecycleStage } = getClientInfo(task.Client);
-
-      if (!acc[lifecycleStage]) {
-        acc[lifecycleStage] = {};
+      const { name: clientName, lifecycleStageName } = getClientInfo(task.Client);
+      const stageName = lifecycleStageName || 'Unknown';
+  
+      if (!acc[stageName]) {
+        acc[stageName] = {};
       }
-      if (!acc[lifecycleStage][clientName]) {
-        acc[lifecycleStage][clientName] = [];
+      if (!acc[stageName][clientName]) {
+        acc[stageName][clientName] = [];
       }
-      acc[lifecycleStage][clientName].push(task);
+      acc[stageName][clientName].push(task);
+  
+      // Add pinned clients with no tasks
+      pinnedClients.forEach(pinnedClientName => {
+        const { lifecycleStageName: pinnedStageName } = getClientInfo(pinnedClientName);
+        const pinnedStage = pinnedStageName || 'Unknown';
+        if (!acc[pinnedStage]) {
+          acc[pinnedStage] = {};
+        }
+        if (!acc[pinnedStage][pinnedClientName]) {
+          acc[pinnedStage][pinnedClientName] = [];
+        }
+      });
+  
       return acc;
     }, {});
-
-    // Add pinned clients with no tasks
-    pinnedClients.forEach(clientName => {
-      const { lifecycleStage } = getClientInfo(clientName);
-      if (!grouped[lifecycleStage]) {
-        grouped[lifecycleStage] = {};
-      }
-      if (!grouped[lifecycleStage][clientName]) {
-        grouped[lifecycleStage][clientName] = [];
-      }
-    });
-
+  
+    // Debugging log
+    console.log('Grouped tasks:', grouped);
+  
     // Sort clients alphabetically within each lifecycle stage
     Object.keys(grouped).forEach(stage => {
       grouped[stage] = Object.entries(grouped[stage])
         .sort(([a], [b]) => a.localeCompare(b))
         .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
     });
-
+  
     return grouped;
   };
 
@@ -198,13 +231,7 @@ const TaskList = () => {
 
   const groupedTasks = groupTasksByLifecycleStageAndClient(filteredTasks);
 
-  const lifecycleStageOrder = [
-    'Live Client',
-    'Active Opportunity',
-    'Prospect',
-    'Closed Opportunity',
-    'Unknown'
-  ];
+  const lifecycleStageOrder = lifecycleStages.map(stage => stage.name);
 
   const handleClientClick = (clientName) => {
     const client = clients.find(c => c.name === clientName);

@@ -1,31 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Table, Thead, Tbody, Tr, Th, Td, Text, Spinner, Input, IconButton } from '@chakra-ui/react';
-import { TriangleUpIcon, TriangleDownIcon } from '@chakra-ui/icons';
-import { fetchClients } from '../../airtableConfig';
+import { Box, Table, Thead, Tbody, Tfoot, Tr, Th, Td, Text, Spinner, IconButton, Select, Input, Button } from '@chakra-ui/react';
+import { TriangleUpIcon, TriangleDownIcon, AddIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
+import { fetchClients, fetchLifecycleStages, updateClientLifecycleStage, createClient } from '../../airtableConfig';
 
 const SettingsClientList = () => {
   const [clients, setClients] = useState([]);
+  const [lifecycleStages, setLifecycleStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [newClient, setNewClient] = useState({ name: '', lifecycleStageId: '' });
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
 
   useEffect(() => {
-    const getClients = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const fetchedClients = await fetchClients();
+        const [fetchedClients, fetchedLifecycleStages] = await Promise.all([
+          fetchClients(),
+          fetchLifecycleStages()
+        ]);
+        console.log('Fetched Clients:', fetchedClients);
+        console.log('Fetched Lifecycle Stages:', fetchedLifecycleStages);
+
         setClients(fetchedClients);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching clients:", err);
-        setError("Failed to fetch clients. Please try again.");
+        setLifecycleStages(fetchedLifecycleStages);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setError("Failed to fetch data. Please try again.");
+      } finally {
         setLoading(false);
       }
     };
 
-    getClients();
+    fetchData();
   }, []);
 
   const handleSelect = (clientId) => {
@@ -34,20 +45,56 @@ const SettingsClientList = () => {
 
   const handleDoubleClick = (clientId, field, value) => {
     setEditingCell({ clientId, field });
-    setEditValue(value);
+    setEditValue(field === 'clientLifecycleStage' ? (value[0] || '') : value);
   };
 
   const handleEdit = (e) => {
     setEditValue(e.target.value);
   };
 
+  const handleAddClient = async () => {
+    if (newClient.name && newClient.lifecycleStageId) {
+      try {
+        const createdClient = await createClient(newClient);
+        setClients([...clients, createdClient]);
+        setNewClient({ name: '', lifecycleStageId: '' });
+        setShowNewClientForm(false); // Hide the form after adding
+      } catch (error) {
+        console.error("Error creating new client:", error);
+        // You might want to show an error message to the user here
+      }
+    }
+  };
+
+  const handleLifecycleStageChange = async (clientId, newStageId) => {
+    try {
+      await updateClientLifecycleStage(clientId, newStageId);
+      const updatedStage = lifecycleStages.find(stage => stage.id === newStageId);
+      setClients(clients.map(client =>
+        client.id === clientId ? { ...client, lifecycleStageId: newStageId, lifecycleStageName: updatedStage.name } : client
+      ));
+    } catch (err) {
+      console.error("Error updating client lifecycle stage:", err);
+      // You might want to show an error message to the user here
+    }
+  };
+
   const handleSave = async (clientId, field) => {
     try {
-      await updateClient(clientId, { [field]: editValue });
+      let updatedValue = editValue;
+      if (field === 'lifecycleStage') {
+        await updateClientLifecycleStage(clientId, editValue);
+        const updatedStage = lifecycleStages.find(stage => stage.id === editValue);
+        updatedValue = updatedStage ? [updatedStage.name] : [];
+      } else {
+        // Handle other fields if necessary
+        // await updateClient(clientId, { [field]: editValue });
+      }
       setClients(clients.map(client =>
-        client.id === clientId ? { ...client, [field]: editValue } : client
+        client.id === clientId ? { ...client, clientLifecycleStage: updatedValue } : client
       ));
       setEditingCell(null);
+      console.log('Updated client:', clients.find(c => c.id === clientId));
     } catch (err) {
       console.error("Error updating client:", err);
       // You might want to show an error message to the user here
@@ -66,6 +113,13 @@ const SettingsClientList = () => {
     let sortableClients = [...clients];
     if (sortConfig.key !== null) {
       sortableClients.sort((a, b) => {
+        if (sortConfig.key === 'lifecycleStage') {
+          const stageA = a.clientLifecycleStage && a.clientLifecycleStage.length > 0 ? a.clientLifecycleStage[0] : '';
+          const stageB = b.clientLifecycleStage && b.clientLifecycleStage.length > 0 ? b.clientLifecycleStage[0] : '';
+          return sortConfig.direction === 'ascending'
+            ? stageA.localeCompare(stageB)
+            : stageB.localeCompare(stageA);
+        }
         if (a[sortConfig.key] < b[sortConfig.key]) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
@@ -131,45 +185,80 @@ const SettingsClientList = () => {
         </Thead>
         <Tbody>
           {sortedClients.map((client) => (
-            <Tr
-              key={client.id}
-              onClick={() => handleSelect(client.id)}
-              bg={selectedClient === client.id ? "blue.100" : "transparent"}
-              _hover={{ bg: selectedClient === client.id ? "blue.200" : "gray.100" }}
-              transition="background-color 0.2s"
-            >
-              <Td onDoubleClick={() => handleDoubleClick(client.id, 'name', client.name)}>
-                {editingCell?.clientId === client.id && editingCell?.field === 'name' ? (
-                  <Input
-                    value={editValue}
-                    onChange={handleEdit}
-                    onBlur={() => handleSave(client.id, 'name')}
-                    onKeyDown={(e) => handleKeyDown(e, client.id, 'name')}
-                    size="sm"
-                    autoFocus
-                  />
-                ) : (
-                  client.name
-                )}
-              </Td>
-              <Td onDoubleClick={() => handleDoubleClick(client.id, 'lifecycleStage', client.lifecycleStage)}>
-                {editingCell?.clientId === client.id && editingCell?.field === 'lifecycleStage' ? (
-                  <Input
-                    value={editValue}
-                    onChange={handleEdit}
-                    onBlur={() => handleSave(client.id, 'lifecycleStage')}
-                    onKeyDown={(e) => handleKeyDown(e, client.id, 'lifecycleStage')}
-                    size="sm"
-                    autoFocus
-                  />
-                ) : (
-                  client.lifecycleStage
-                )}
+            <Tr key={client.id}>
+              <Td>{client.name}</Td>
+              <Td>
+                <Select
+                  value={client.lifecycleStageId || ''}
+                  onChange={(e) => handleLifecycleStageChange(client.id, e.target.value)}
+                  size="sm"
+                >
+                  {lifecycleStages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
+                </Select>
               </Td>
               <Td>{new Date(client.lastUpdated).toLocaleDateString()}</Td>
             </Tr>
           ))}
+          {showNewClientForm && (
+            <Tr>
+              <Td>
+                <Input
+                  placeholder="New client name"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                  size="sm"
+                />
+              </Td>
+              <Td>
+                <Select
+                  placeholder="Select lifecycle stage"
+                  value={newClient.lifecycleStageId}
+                  onChange={(e) => setNewClient({ ...newClient, lifecycleStageId: e.target.value })}
+                  size="sm"
+                >
+                  {lifecycleStages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
+                </Select>
+              </Td>
+              <Td>
+                <IconButton
+                  icon={<CheckIcon />}
+                  colorScheme="green"
+                  size="sm"
+                  onClick={handleAddClient}
+                  mr={2}
+                  aria-label="Confirm new client"
+                />
+                <IconButton
+                  icon={<CloseIcon />}
+                  colorScheme="red"
+                  size="sm"
+                  onClick={() => setShowNewClientForm(false)}
+                  aria-label="Cancel new client"
+                />
+              </Td>
+            </Tr>
+          )}
         </Tbody>
+        <Tfoot>
+          <Tr>
+            <Td colSpan={3}>
+              <IconButton
+                icon={<AddIcon />}
+                aria-label="Add new client"
+                size="sm"
+                onClick={() => setShowNewClientForm(!showNewClientForm)}
+              />
+            </Td>
+          </Tr>
+        </Tfoot>
       </Table>
     </Box>
   );
