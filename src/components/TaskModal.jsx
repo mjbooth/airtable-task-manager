@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import StatusSelect from './StatusSelect';
 import ClientSelect from './ClientSelect';
+import { useStatusConfig } from '../contexts/StatusContext';
 import OwnerSelect from './OwnerSelect';
 import axios from 'axios';
 import {
@@ -16,7 +17,6 @@ import {
   VStack,
   Box,
   Heading,
-  Badge,
   Text,
   Flex,
   Spinner,
@@ -35,6 +35,7 @@ import { updateTask, createTask } from '../airtableConfig';
 
 const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, isNewTask = false }) => {
   const toast = useToast();
+  const statusConfig = useStatusConfig();
   const [editMode, setEditMode] = useState(false);
   const [editedTask, setEditedTask] = useState(task || {});
   const [isChanged, setIsChanged] = useState(false);
@@ -78,8 +79,8 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
         Client: editedTask.Client,
         Priority: editedTask.Priority,
         // Only include AssignedOwner if it exists and is not empty
-        ...(editedTask.AssignedOwner && editedTask.AssignedOwner.length > 0 
-          ? { AssignedOwner: editedTask.AssignedOwner } 
+        ...(editedTask.AssignedOwner && editedTask.AssignedOwner.length > 0
+          ? { AssignedOwner: editedTask.AssignedOwner }
           : {})
       };
 
@@ -113,13 +114,13 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
       setEditedTask(updatedTaskData); // Ensure local state is up-to-date
       if (onTasksUpdate) {
         onTasksUpdate(updatedTaskData); // Pass updated data to parent
-      }      
+      }
 
       // Reset the edit mode
       setEditMode(false);
 
       // Force a re-render of the component
-      setEditedTask({...updatedTaskData});
+      setEditedTask({ ...updatedTaskData });
     } catch (error) {
       console.error(isNewTask ? 'Error creating task:' : 'Error updating task:', error);
       // Log the error response if available
@@ -196,7 +197,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
   }, []);
 
   const [currentStatus, setCurrentStatus] = useState(task ? task.Status : '');
-  
+
   const updateExistingTaskStatus = async (newStatus) => {
     try {
       const updatedTask = await updateTask({ ...task, Status: newStatus });
@@ -247,7 +248,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
   };
 
   useEffect(() => {
-    fetchOwners(); 
+    fetchOwners();
     fetchClients();
 
     if (task && task.AssignedOwner && task.AssignedOwner.length > 0 && task.AssignedOwner[0] !== ownerName) {
@@ -281,21 +282,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
     } catch (error) {
       console.error('Error fetching owners:', error);
     }
-  };
-
-  // Add this function
-  const getStatusColor = (status) => {
-    const statusColors = {
-      planned: "blue.100",
-      "awaiting approval": "yellow.100",
-      "in progress": "green.100",
-      reviewing: "purple.100",
-      completed: "teal.100",
-      "on hold": "orange.100",
-      cancelled: "red.100",
-      blocked: "gray.100"
-    };
-    return statusColors[status.toLowerCase()] || "gray.100";
   };
 
   const handleOwnerChange = (newOwnerId) => {
@@ -389,10 +375,10 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
                 <Box flex="1" pl={4} borderLeft="1px" borderColor="gray.200">
                   <VStack align="stretch" spacing={4}>
                     <Box>
-                    <StatusSelect
-                      value={editMode ? editedTask.Status : currentStatus}
-                      onChange={handleStatusChange}
-                    />
+                      <StatusSelect
+                        value={editMode ? editedTask.Status : currentStatus}
+                        onChange={handleStatusChange}
+                      />
                     </Box>
                     <Box>
                       <Heading as="h4" size="sm" mb={2}>Client: </Heading>

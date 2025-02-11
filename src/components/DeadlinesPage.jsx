@@ -25,6 +25,7 @@ import { fetchTasks, fetchClients } from '../airtableConfig';
 import axios from 'axios';
 import TaskModal from './TaskModal';
 import { useStatusConfig } from '../contexts/StatusContext';
+import SkeletonTaskCard from './SkeletonTaskCard';
 
 const DeadlinesPage = () => {
     const [tasks, setTasks] = useState([]);
@@ -38,17 +39,17 @@ const DeadlinesPage = () => {
     const [dateFilter, setDateFilter] = useState('All');
     const statusConfig = useStatusConfig();
     const theme = useTheme();
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
-            setLoading(true);
+            setIsLoading(true);
             try {
-                await fetchTasksData();
-                await fetchClientsData();
+                await Promise.all([fetchTasksData(), fetchClientsData()]);
             } catch (error) {
                 console.error("Error fetching data:", error);
             } finally {
-                setLoading(false);
+                setIsLoading(false);
             }
         };
 
@@ -161,17 +162,8 @@ const DeadlinesPage = () => {
     };
 
     const getStatusTextColor = (status) => {
-        // For now, we'll use black for all text colors, as in StatusSelect
         return 'black';
     };
-
-    if (loading) {
-        return (
-            <Flex width="100%" height="80vh" justifyContent="center" alignItems="center">
-                <Spinner size="xl" />
-            </Flex>
-        );
-    }
 
     return (
         <Flex height="calc(100vh - 104px)" direction="column">
@@ -213,51 +205,58 @@ const DeadlinesPage = () => {
             </Box>
             <Box flex={1} overflow="auto" px={5} pb={5}>
                 <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
-                    {filteredTasks.map(task => (
-                        <Box
-                            key={task.id}
-                            borderWidth="1px"
-                            borderRadius="lg"
-                            p={4}
-                            boxShadow="md"
-                            cursor="pointer"
-                            onClick={() => handleTaskClick(task)}
-                            _hover={{ boxShadow: "lg" }}
-                        >
-                            <Flex direction="column" justify="space-between" height="100%">
-                                <VStack align="stretch" spacing={2}>
-                                    <Flex justify="space-between" align="flex-start">
-                                        <Heading as="h4" size="4xs" mb={2} textAlign="left">{task.Name}</Heading>
-                                        <Badge
-                                            bg={getStatusColor(task.Status)}
-                                            color={getStatusTextColor(task.Status)}
-                                            fontSize="xs"
-                                            px={2}
-                                            py={1}
-                                            borderRadius="full"
-                                            ml={1}
-                                        >
-                                            {task.Status}
-                                        </Badge>
+                    {isLoading ? (
+                        Array(15).fill().map((_, index) => (
+                            <SkeletonTaskCard key={index} />
+                        ))
+                    ) : (
+
+                        filteredTasks.map(task => (
+                            <Box
+                                key={task.id}
+                                borderWidth="1px"
+                                borderRadius="lg"
+                                p={4}
+                                boxShadow="md"
+                                cursor="pointer"
+                                onClick={() => handleTaskClick(task)}
+                                _hover={{ boxShadow: "lg" }}
+                            >
+                                <Flex direction="column" justify="space-between" height="100%">
+                                    <VStack align="stretch" spacing={2}>
+                                        <Flex justify="space-between" align="flex-start">
+                                            <Heading as="h4" size="4xs" mb={2} textAlign="left">{task.Name}</Heading>
+                                            <Badge
+                                                bg={getStatusColor(task.Status)}
+                                                color={getStatusTextColor(task.Status)}
+                                                fontSize="xs"
+                                                px={2}
+                                                py={1}
+                                                borderRadius="full"
+                                                ml={1}
+                                            >
+                                                {task.Status}
+                                            </Badge>
+                                        </Flex>
+                                        <Text fontSize="xs" color="gray.600">{task.Client}</Text>
+                                    </VStack>
+                                    <Flex justify="space-between" align="center" mt="auto" pt={4}>
+                                        <HStack spacing={2}>
+                                            {task.AssignedOwner && task.AssignedOwner.map(ownerId => {
+                                                const owner = owners.find(o => o.id === ownerId);
+                                                return owner ? (
+                                                    <Avatar key={ownerId} size="xs" src={owner.avatar} name={owner.name} />
+                                                ) : null;
+                                            })}
+                                        </HStack>
+                                        <Text fontSize="sm" fontWeight="bold">
+                                            Due: {task.DueDate ? format(new Date(task.DueDate), 'MMM d, yyyy') : 'No due date'}
+                                        </Text>
                                     </Flex>
-                                    <Text fontSize="xs" color="gray.600">{task.Client}</Text>
-                                </VStack>
-                                <Flex justify="space-between" align="center" mt="auto" pt={4}>
-                                    <HStack spacing={2}>
-                                        {task.AssignedOwner && task.AssignedOwner.map(ownerId => {
-                                            const owner = owners.find(o => o.id === ownerId);
-                                            return owner ? (
-                                                <Avatar key={ownerId} size="xs" src={owner.avatar} name={owner.name} />
-                                            ) : null;
-                                        })}
-                                    </HStack>
-                                    <Text fontSize="sm" fontWeight="bold">
-                                        Due: {task.DueDate ? format(new Date(task.DueDate), 'MMM d, yyyy') : 'No due date'}
-                                    </Text>
                                 </Flex>
-                            </Flex>
-                        </Box>
-                    ))}
+                            </Box>
+                        ))
+                    )}
                 </SimpleGrid>
             </Box>
             {selectedTask && (

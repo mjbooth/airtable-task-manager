@@ -86,17 +86,28 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
   };
 
   const handleStatusUpdate = async (newStatus) => {
+    console.log('Attempting to update status to:', newStatus);
     if (typeof onStatusUpdate === 'function') {
       try {
-        const updatedClient = await onStatusUpdate(localClient.id, newStatus);
-        setLocalClient(updatedClient);
+        console.log('Calling onStatusUpdate with:', client.id, newStatus);
+        const updatedClient = await onStatusUpdate(client.id, newStatus);
+        console.log('Received updated client:', updatedClient);
+  
+        // Update local state with the response from Airtable
+        setLocalClient(prevClient => ({ ...prevClient, ...updatedClient }));
+  
         toast({
           title: "Status Updated",
-          description: "The client status has been successfully updated.",
+          description: `The client status has been successfully updated.`,
           status: "success",
           duration: 3000,
           isClosable: true,
         });
+        
+        // Notify parent component of the update with the latest data
+        if (typeof onClose === 'function') {
+          onClose(updatedClient);
+        }
       } catch (error) {
         console.error('Error updating client status:', error);
         toast({
@@ -244,11 +255,17 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
                             size="md"
                             borderRadius="full"
                             variant={activeStatuses.includes(status) ? "solid" : "outline"}
-                            bg={activeStatuses.includes(status) ? getStatusHexColor(status) : "transparent"}
-                            color={activeStatuses.includes(status) ? "black" : getStatusHexColor(status)}
+                            bg={activeStatuses.includes(status) 
+                              ? getStatusHexColor(status) : "transparent"}
+                            color={activeStatuses.includes(status) 
+                              ? "black" : getStatusHexColor(status)}
                             borderColor={getStatusHexColor(status)}
                             cursor="pointer"
                             onClick={() => handleStatusFilter(status)}
+                            boxShadow={activeStatuses.includes(status) 
+                              ? `0 0 0 2px ${getStatusHexColor(status)}100` 
+                              : `0 0 0 2px ${getStatusHexColor(status)}50`  
+                            }
                           >
                             <TagLabel>{status}</TagLabel>
                           </Tag>
@@ -261,12 +278,19 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
                             key={status}
                             size="md"
                             borderRadius="full"
-                            variant={activeStatuses.includes(status) ? "solid" : "outline"}
-                            bg={activeStatuses.includes(status) ? getStatusHexColor(status) : "transparent"}
-                            color={activeStatuses.includes(status) ? "black" : getStatusHexColor(status)}
-                            borderColor={getStatusHexColor(status)}
+                            variant={activeStatuses.includes(status) 
+                              ? "solid" : "outline"}
+                            bg={activeStatuses.includes(status) 
+                              ? getStatusHexColor(status) : "transparent"}
+                            color={activeStatuses.includes(status) 
+                              ? "black" : getStatusHexColor(status)}
+                            borderColor="transparent"
                             cursor="pointer"
                             onClick={() => handleStatusFilter(status)}
+                            boxShadow={activeStatuses.includes(status) 
+                              ? `0 0 0 2px ${getStatusHexColor(status)}100`  // Active state: more opaque shadow
+                              : `0 0 0 2px ${getStatusHexColor(status)}50`  // Inactive state: less opaque, thinner shadow
+                            }
                           >
                             <TagLabel>{status}</TagLabel>
                           </Tag>
@@ -276,38 +300,38 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
                   )}
                 </HStack>
                 <VStack align="stretch" spacing={4}>
-                {filteredTasks && filteredTasks.length > 0 ? sortTasksByDueDate(filteredTasks).map(task => (
+                  {filteredTasks && filteredTasks.length > 0 ? sortTasksByDueDate(filteredTasks).map(task => (
                     <Box
                       key={task.id}
                       p={3}
                       borderWidth="1px"
                       borderRadius="md"
                       bg="gray.50"
-                      onClick={() => handleTaskClick(task)}
                       cursor="pointer"
-                      _hover={{ bg: "gray.100" }}
+                      onClick={() => handleTaskClick(task)}
                     >
-                      <VStack align="start" spacing={4}>
-                        <Heading as="h5" size="sm">{task.Name}</Heading>
+                      <Flex justifyContent="space-between" alignItems="center">
+                        <Text fontWeight="bold">{task.Name}</Text>
                         <Badge
                           bg={getStatusHexColor(task.Status)}
                           color="black"
                           fontSize="sm"
+                          fontWeight="medium"
                           px={2}
                           py={1}
+                          ml={1}
                           borderRadius="full"
                           textTransform="none"
                         >
                           {task.Status}
                         </Badge>
-                        <Text fontSize="sm" noOfLines={2}>{task.Description}</Text>
-                        {task.DueDate && (
-                          <Text fontSize="sm">Due: {new Date(task.DueDate).toLocaleDateString()}</Text>
-                        )}
-                      </VStack>
+                      </Flex>
+                      <Text fontSize="sm" color="gray.600">
+                        Due: {task.DueDate ? format(new Date(task.DueDate), 'MMM d, yyyy') : 'No due date'}
+                      </Text>
                     </Box>
                   )) : (
-                    <Text>No tasks available for this client.</Text>
+                    <Text>No tasks available</Text>
                   )}
                 </VStack>
               </Box>
@@ -319,9 +343,10 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
       {selectedTask && (
         <TaskModal
           isOpen={isTaskModalOpen}
-          onClose={() => setIsTaskModalOpen(false)}
+          onClose={handleTaskModalClose}
           task={selectedTask}
-          getStatusColor={getStatusColor}
+          onTasksUpdate={() => {
+          }}
         />
       )}
     </>

@@ -20,7 +20,7 @@ import {
 } from '@chakra-ui/react';
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
 import { BsThreeDots } from 'react-icons/bs';
-import { fetchTasks, fetchClients, updateClientStatus, updateTask, updateClientPinnedStatus, fetchLifecycleStages } from '../airtableConfig';
+import { fetchTasks, fetchTaskDetails, fetchClients, updateClientStatus, updateTask, updateClientPinnedStatus, fetchLifecycleStages } from '../airtableConfig';
 import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
 import { useTheme } from '@chakra-ui/react';
@@ -135,15 +135,17 @@ const TaskList = () => {
       const updatedClient = await updateClientStatus(clientId, newStatus);
       setClients(prevClients =>
         prevClients.map(client =>
-          client.id === clientId ? updatedClient : client
+          client.id === clientId ? { ...client, ...updatedClient } : client
         )
       );
+      // Fetch updated data
+      await getData();
       return updatedClient;
     } catch (error) {
       console.error('Error updating client status:', error);
       throw error;
     }
-  }, []);
+  }, [getData]);
 
   useEffect(() => {
     if (!isClientModalOpen) {
@@ -173,8 +175,8 @@ const TaskList = () => {
       } else if (client.clientLifecycleStage && client.clientLifecycleStage.length > 0) {
         lifecycleStageName = client.clientLifecycleStage[0];
       }
-      return { 
-        name: client.name, 
+      return {
+        name: client.name,
         lifecycleStageId: client.lifecycleStage ? client.lifecycleStage[0] : null,
         lifecycleStageName: lifecycleStageName
       };
@@ -188,7 +190,7 @@ const TaskList = () => {
     const grouped = tasks.reduce((acc, task) => {
       const { name: clientName, lifecycleStageName } = getClientInfo(task.Client);
       const stageName = lifecycleStageName || 'Unknown';
-  
+
       if (!acc[stageName]) {
         acc[stageName] = {};
       }
@@ -196,7 +198,7 @@ const TaskList = () => {
         acc[stageName][clientName] = [];
       }
       acc[stageName][clientName].push(task);
-  
+
       // Add pinned clients with no tasks
       pinnedClients.forEach(pinnedClientName => {
         const { lifecycleStageName: pinnedStageName } = getClientInfo(pinnedClientName);
@@ -208,20 +210,20 @@ const TaskList = () => {
           acc[pinnedStage][pinnedClientName] = [];
         }
       });
-  
+
       return acc;
     }, {});
-  
+
     // Debugging log
     console.log('Grouped tasks:', grouped);
-  
+
     // Sort clients alphabetically within each lifecycle stage
     Object.keys(grouped).forEach(stage => {
       grouped[stage] = Object.entries(grouped[stage])
         .sort(([a], [b]) => a.localeCompare(b))
         .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
     });
-  
+
     return grouped;
   };
 
@@ -429,7 +431,7 @@ const TaskList = () => {
           onOpenTaskModal={handleTaskClick}
           tasks={tasks.filter(task => task.Client === selectedClient.name)}
           statusConfig={statusConfig}
-          onStatusUpdate={onTasksUpdate}
+          onStatusUpdate={handleClientStatusUpdate}
           onPinUpdate={togglePinnedClient}
         />
       )}

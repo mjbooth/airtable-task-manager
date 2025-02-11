@@ -42,6 +42,25 @@ export const fetchTasks = async () => {
   }
 };
 
+export const fetchTaskDetails = async (taskId) => {
+  if (!taskTable) {
+    console.error('Task table is not configured properly.');
+    throw new Error('Task table is not configured properly.');
+  }
+
+  try {
+    const record = await taskTable.find(taskId);
+    return {
+      id: record.id,
+      ...record.fields,
+      Client: record.fields.Client || 'Unassigned',
+    };
+  } catch (error) {
+    console.error("Error fetching task details:", error);
+    throw error;
+  }
+};
+
 export const createClient = async (clientData) => {
   if (!clientTable) {
     console.error('Client table is not configured properly.');
