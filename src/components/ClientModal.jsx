@@ -132,17 +132,30 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
 
   const handlePinToggle = async () => {
     try {
+      // Call the updateClientPinnedStatus function with the current client ID and the new pinned status
       const updatedClient = await updateClientPinnedStatus(localClient.id, !localClient.isPinned);
+      
+      // Update the local state with the response from Airtable
       setLocalClient(prevClient => ({ ...prevClient, isPinned: updatedClient.isPinned }));
+      
+      // Notify the parent component of the update
       if (onPinUpdate) {
         onPinUpdate(updatedClient);
       }
+      
+      // Show a success toast
       toast({
-        title: localClient.isPinned ? "Client Unpinned" : "Client Pinned",
+        title: updatedClient.isPinned ? "Client Pinned" : "Client Unpinned",
+        description: `${localClient.name} has been ${updatedClient.isPinned ? "pinned" : "unpinned"}.`,
         status: "success",
         duration: 3000,
         isClosable: true,
       });
+      
+      // If there's an onClose function (which might refresh the main view), call it
+      if (typeof onClose === 'function') {
+        onClose(updatedClient);
+      }
     } catch (error) {
       console.error('Error toggling pin status:', error);
       toast({

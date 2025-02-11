@@ -178,30 +178,26 @@ export const updateClientLifecycleStage = async (clientId, lifecycleStageId) => 
   }
 };
 
-export const updateClientPinnedStatus = async (clientId, isPinned) => {
+export const updateClientPinnedStatus = async (clientId, newPinnedStatus) => {
   if (!clientTable) {
     console.error('Client table is not configured properly.');
     throw new Error('Client table is not configured properly.');
   }
 
   try {
-    // Convert isPinned to a boolean if it's not already
-    const pinnedStatus = Boolean(isPinned);
     const updatedRecord = await clientTable.update(clientId, {
-      'pinnedClient': pinnedStatus,  // Changed to 'pinnedClient'
+      pinnedClient: newPinnedStatus,
     });
-
     return {
       id: updatedRecord.id,
       name: updatedRecord.fields.Client,
       status: updatedRecord.fields.Status,
       lastUpdated: updatedRecord.fields['Last Modified'],
-      isPinned: updatedRecord.fields.pinnedClient || false,  // Changed to 'pinnedClient'
+      isPinned: updatedRecord.fields.pinnedClient || false,
       lifecycleStage: updatedRecord.fields['Lifecycle Stage'] || 'Unknown',
     };
   } catch (error) {
     console.error('Error updating client pinned status:', error);
-    console.error('Error details:', error.message, error.response?.data);
     throw error;
   }
 };
