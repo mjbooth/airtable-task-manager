@@ -59,7 +59,7 @@ const DeadlinesPage = () => {
     const fetchTasksData = async () => {
         try {
             const fetchedTasks = await fetchTasks();
-            const excludedStatuses = ['Completed', 'Cancelled'];
+            const excludedStatuses = ['Completed', 'Cancelled', 'Blocked'];
             const filteredAndSortedTasks = fetchedTasks
                 .filter(task => !excludedStatuses.includes(task.Status))
                 .sort((a, b) => new Date(a.DueDate) - new Date(b.DueDate));

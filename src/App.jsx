@@ -1,5 +1,5 @@
-import React, { useState, Suspense, lazy } from 'react';
-import { ChakraProvider, Flex, Box, Button, Text, Spinner } from '@chakra-ui/react';
+import React, { useState, Suspense, lazy, useCallback, useEffect } from 'react';
+import { ChakraProvider, Flex, Box, Button, Text, Spinner, useToast } from '@chakra-ui/react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import LeftNavBar from './components/LeftNavBar';
 import { FaPlus, FaSync } from 'react-icons/fa';
@@ -24,23 +24,37 @@ function ErrorFallback({ error }) {
 
 function App() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const toast = useToast();
   const handleNewTask = () => {
+    console.log('Opening new task modal');
     setIsTaskModalOpen(true);
   };
 
   const handleTaskModalClose = () => {
+    console.log('Closing task modal');
     setIsTaskModalOpen(false);
   };
 
   const handleTaskSubmit = (taskData) => {
-    // Implement logic to save the new task
     console.log('New task data:', taskData);
     setIsTaskModalOpen(false);
   };
-  const handleRefresh = () => {
-    // Implement refresh logic
-    console.log('Refreshing data');
-  };
+
+  const handleRefresh = useCallback(() => {
+    console.log('Refresh triggered');
+    setRefreshTrigger(prev => prev + 1);
+    toast({
+      title: "Refreshing data",
+      description: "Fetching the latest data from Airtable",
+      status: "info",
+      duration: 2000,
+      isClosable: true,
+    });
+  }, [toast]);
+
+  useEffect(() => {
+  }, [refreshTrigger]);
 
   return (
     <ChakraProvider theme={theme}>
@@ -61,11 +75,10 @@ function App() {
                 <Box p={4}>
                   <Suspense fallback={<Spinner />}>
                     <Routes>
-                      <Route path="/" element={<TaskList />} />
-                      <Route path="/tasks" element={<TaskList />} />
-                      <Route path="/deadlines" element={<DeadlinesPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      {/* Add other routes for Deadlines, Contacts, Insights, and Settings */}
+                      <Route path="/" element={<TaskList refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
+                      <Route path="/tasks" element={<TaskList refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
+                      <Route path="/deadlines" element={<DeadlinesPage refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
+                      <Route path="/settings" element={<SettingsPage refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
                     </Routes>
                   </Suspense>
                 </Box>
@@ -80,6 +93,8 @@ function App() {
             onSave={handleTaskSubmit}
             isNewTask={true}
             task={{}}  // Pass an empty object for a new task
+            refreshTrigger={refreshTrigger} 
+            onRefresh={handleRefresh} 
           />
         </Suspense>
       </ErrorBoundary>

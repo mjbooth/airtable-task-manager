@@ -46,7 +46,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
   const [activeStatuses, setActiveStatuses] = useState(() => {
     if (tasks) {
       const allStatuses = [...new Set(tasks.map(task => task.Status))];
-      return allStatuses.filter(status => !['Completed', 'Cancelled'].includes(status));
+      return allStatuses.filter(status => !['Completed', 'Cancelled', 'Blocked'].includes(status));
     }
     return [];
   });
@@ -175,7 +175,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
       } else {
         const newActiveStatuses = [...prevActiveStatuses, status];
         // If 'Completed' or 'Cancelled' is being added, remove it from the inactive list
-        if (['Completed', 'Cancelled'].includes(status)) {
+        if (['Completed', 'Cancelled', 'Blocked'].includes(status)) {
           return newActiveStatuses;
         }
         return newActiveStatuses;
@@ -261,7 +261,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
                 <HStack spacing={2} mb={4} wrap="wrap">
                   {tasks && (
                     <>
-                      {['Completed', 'Cancelled'].map(status =>
+                      {['Completed', 'Cancelled', 'Blocked'].map(status =>
                         tasks.some(task => task.Status === status) && (
                           <Tag
                             key={status}
@@ -285,7 +285,7 @@ const ClientModal = ({ isOpen, onClose, client, tasks, onStatusUpdate, onPinUpda
                         )
                       )}
                       {[...new Set(tasks.map(task => task.Status))]
-                        .filter(status => !['Completed', 'Cancelled'].includes(status))
+                        .filter(status => !['Completed', 'Cancelled', 'Blocked'].includes(status))
                         .map(status => (
                           <Tag
                             key={status}

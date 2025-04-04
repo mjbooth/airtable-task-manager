@@ -59,10 +59,6 @@ const TaskList = () => {
       setPinnedClients(fetchedClients.filter(client => client.isPinned).map(client => client.name));
       setError(null);
 
-      // Debugging logs
-      console.log('Fetched tasks:', fetchedTasks);
-      console.log('Fetched clients:', fetchedClients);
-      console.log('Fetched lifecycle stages:', fetchedLifecycleStages);
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to fetch data. Please check your Airtable configuration.");
@@ -167,7 +163,6 @@ const TaskList = () => {
   const getClientInfo = (clientName) => {
     const client = clients.find(c => c.name === clientName);
     if (client) {
-      console.log('Client info:', client);
       let lifecycleStageName = 'Unknown';
       if (client.lifecycleStage && client.lifecycleStage.length > 0) {
         const lifecycleStage = lifecycleStages.find(stage => stage.id === client.lifecycleStage[0]);
@@ -214,9 +209,6 @@ const TaskList = () => {
       return acc;
     }, {});
 
-    // Debugging log
-    console.log('Grouped tasks:', grouped);
-
     // Sort clients alphabetically within each lifecycle stage
     Object.keys(grouped).forEach(stage => {
       grouped[stage] = Object.entries(grouped[stage])
@@ -229,7 +221,7 @@ const TaskList = () => {
 
   const filteredTasks = showCompleted
     ? tasks
-    : tasks.filter(task => !['completed', 'cancelled'].includes(task.Status?.toLowerCase()));
+    : tasks.filter(task => !['completed', 'cancelled', 'blocked'].includes(task.Status?.toLowerCase()));
 
   const groupedTasks = groupTasksByLifecycleStageAndClient(filteredTasks);
 
