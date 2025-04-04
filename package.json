@@ -33,7 +33,7 @@
     "react-router-dom": "^6.21.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.1.6"
+    "@vitejs/plugin-react": "4.2.1",
+    "vite": "5.1.6"
   }
 }
