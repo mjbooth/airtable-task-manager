@@ -11,6 +11,7 @@ import { StatusProvider } from './contexts/StatusContext';
 const TaskList = lazy(() => import('./components/TaskList'));
 const TaskModal = lazy(() => import('./components/TaskModal'));
 const DeadlinesPage = lazy(() => import('./components/DeadlinesPage'));
+const ActionOwnerPage = lazy(() => import('./components/ActionOwnerPage'));
 const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
 
 function ErrorFallback({ error }) {
@@ -78,6 +79,7 @@ function App() {
                       <Route path="/" element={<TaskList refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
                       <Route path="/tasks" element={<TaskList refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
                       <Route path="/deadlines" element={<DeadlinesPage refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
+                      <Route path="/action-owner" element={<ActionOwnerPage refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
                       <Route path="/settings" element={<SettingsPage refreshTrigger={refreshTrigger} onRefresh={handleRefresh} />} />
                     </Routes>
                   </Suspense>

@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Table, Thead, Tbody, Tfoot, Tr, Th, Td, Text, Spinner, IconButton, Select, Input, Button } from '@chakra-ui/react';
+import { Box, Table, Thead, Tbody, Tfoot, Tr, Th, Td, Text, Spinner, IconButton, Select, Input, Button, Flex } from '@chakra-ui/react';
 import { TriangleUpIcon, TriangleDownIcon, AddIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
-import { fetchClients, fetchLifecycleStages, updateClientLifecycleStage, createClient } from '../../airtableConfig';
+import { fetchClients, fetchLifecycleStages, updateClientLifecycleStage, createClient, fetchUsers, updateClientAssignedOwner } from '../../airtableConfig';
 
 const SettingsClientList = () => {
   const [clients, setClients] = useState([]);
   const [lifecycleStages, setLifecycleStages] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
   const [newClient, setNewClient] = useState({ name: '', lifecycleStageId: '' });
   const [showNewClientForm, setShowNewClientForm] = useState(false);
 
@@ -19,15 +20,18 @@ const SettingsClientList = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [fetchedClients, fetchedLifecycleStages] = await Promise.all([
+        const [fetchedClients, fetchedLifecycleStages, fetchedUsers] = await Promise.all([
           fetchClients(),
-          fetchLifecycleStages()
+          fetchLifecycleStages(),
+          fetchUsers()
         ]);
         console.log('Fetched Clients:', fetchedClients);
         console.log('Fetched Lifecycle Stages:', fetchedLifecycleStages);
+        console.log('Fetched Users:', fetchedUsers);
 
         setClients(fetchedClients);
         setLifecycleStages(fetchedLifecycleStages);
+        setUsers(fetchedUsers);
       } catch (error) {
         console.error("Error fetching data:", error);
         setError("Failed to fetch data. Please try again.");
@@ -79,6 +83,24 @@ const SettingsClientList = () => {
     }
   };
 
+  const handleAssignedOwnerChange = async (clientId, newOwnerId) => {
+    try {
+      await updateClientAssignedOwner(clientId, newOwnerId);
+      setClients(clients.map(client =>
+        client.id === clientId ? { ...client, AssignedOwner: newOwnerId ? [newOwnerId] : null } : client
+      ));
+    } catch (err) {
+      console.error("Error updating client assigned owner:", err);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  const getAssignedOwnerName = (assignedOwner) => {
+    if (!assignedOwner || assignedOwner.length === 0) return 'Unassigned';
+    const user = users.find(u => u.id === assignedOwner[0]);
+    return user ? user.name : 'Unknown User';
+  };
+
   const handleSave = async (clientId, field) => {
     try {
       let updatedValue = editValue;
@@ -120,6 +142,13 @@ const SettingsClientList = () => {
             ? stageA.localeCompare(stageB)
             : stageB.localeCompare(stageA);
         }
+        if (sortConfig.key === 'AssignedOwner') {
+          const ownerA = getAssignedOwnerName(a.AssignedOwner);
+          const ownerB = getAssignedOwnerName(b.AssignedOwner);
+          return sortConfig.direction === 'ascending'
+            ? ownerA.localeCompare(ownerB)
+            : ownerB.localeCompare(ownerA);
+        }
         if (a[sortConfig.key] < b[sortConfig.key]) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
@@ -148,38 +177,93 @@ const SettingsClientList = () => {
       <Table variant="simple" size="sm">
         <Thead>
           <Tr>
-            <Th onClick={() => requestSort('name')} cursor="pointer">
-              Client Name
-              {sortConfig.key === 'name' && (
+            <Th 
+              onClick={() => requestSort('name')} 
+              cursor="pointer"
+              _hover={{ bg: 'gray.50' }}
+              userSelect="none"
+            >
+              <Flex align="center" justify="space-between">
+                <Text>Client Name</Text>
                 <IconButton
-                  icon={sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />}
+                  icon={
+                    sortConfig.key === 'name' 
+                      ? (sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />)
+                      : <TriangleUpIcon />
+                  }
                   size="xs"
-                  ml={2}
+                  variant="ghost"
+                  opacity={sortConfig.key === 'name' ? 1 : 0.3}
                   aria-label={`Sort by name ${sortConfig.direction}`}
+                  pointerEvents="none"
                 />
-              )}
+              </Flex>
             </Th>
-            <Th onClick={() => requestSort('lifecycleStage')} cursor="pointer">
-              Lifecycle Stage
-              {sortConfig.key === 'lifecycleStage' && (
+            <Th 
+              onClick={() => requestSort('lifecycleStage')} 
+              cursor="pointer"
+              _hover={{ bg: 'gray.50' }}
+              userSelect="none"
+            >
+              <Flex align="center" justify="space-between">
+                <Text>Lifecycle Stage</Text>
                 <IconButton
-                  icon={sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />}
+                  icon={
+                    sortConfig.key === 'lifecycleStage' 
+                      ? (sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />)
+                      : <TriangleUpIcon />
+                  }
                   size="xs"
-                  ml={2}
+                  variant="ghost"
+                  opacity={sortConfig.key === 'lifecycleStage' ? 1 : 0.3}
                   aria-label={`Sort by lifecycle stage ${sortConfig.direction}`}
+                  pointerEvents="none"
                 />
-              )}
+              </Flex>
             </Th>
-            <Th onClick={() => requestSort('lastUpdated')} cursor="pointer">
-              Last Updated
-              {sortConfig.key === 'lastUpdated' && (
+            <Th 
+              onClick={() => requestSort('AssignedOwner')} 
+              cursor="pointer"
+              _hover={{ bg: 'gray.50' }}
+              userSelect="none"
+            >
+              <Flex align="center" justify="space-between">
+                <Text>Assigned Owner</Text>
                 <IconButton
-                  icon={sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />}
+                  icon={
+                    sortConfig.key === 'AssignedOwner' 
+                      ? (sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />)
+                      : <TriangleUpIcon />
+                  }
                   size="xs"
-                  ml={2}
-                  aria-label={`Sort by last updated ${sortConfig.direction}`}
+                  variant="ghost"
+                  opacity={sortConfig.key === 'AssignedOwner' ? 1 : 0.3}
+                  aria-label={`Sort by assigned owner ${sortConfig.direction}`}
+                  pointerEvents="none"
                 />
-              )}
+              </Flex>
+            </Th>
+            <Th 
+              onClick={() => requestSort('lastUpdated')} 
+              cursor="pointer"
+              _hover={{ bg: 'gray.50' }}
+              userSelect="none"
+            >
+              <Flex align="center" justify="space-between">
+                <Text>Last Updated</Text>
+                <IconButton
+                  icon={
+                    sortConfig.key === 'lastUpdated' 
+                      ? (sortConfig.direction === 'ascending' ? <TriangleUpIcon /> : <TriangleDownIcon />)
+                      : <TriangleUpIcon />
+                  }
+                  size="xs"
+                  variant="ghost"
+                  opacity={sortConfig.key === 'lastUpdated' ? 1 : 0.3}
+                  aria-label={`Sort by last updated ${sortConfig.direction}`}
+                  pointerEvents="none"
+                />
+              </Flex>
             </Th>
           </Tr>
         </Thead>
@@ -196,6 +280,20 @@ const SettingsClientList = () => {
                   {lifecycleStages.map((stage) => (
                     <option key={stage.id} value={stage.id}>
                       {stage.name}
+                    </option>
+                  ))}
+                </Select>
+              </Td>
+              <Td>
+                <Select
+                  value={client.AssignedOwner?.[0] || ''}
+                  onChange={(e) => handleAssignedOwnerChange(client.id, e.target.value)}
+                  size="sm"
+                >
+                  <option value="">Unassigned</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
                     </option>
                   ))}
                 </Select>
@@ -228,6 +326,17 @@ const SettingsClientList = () => {
                 </Select>
               </Td>
               <Td>
+                <Select
+                  placeholder="Select owner"
+                  value=""
+                  onChange={() => {}}
+                  size="sm"
+                  disabled
+                >
+                  <option value="">Assign after creation</option>
+                </Select>
+              </Td>
+              <Td>
                 <IconButton
                   icon={<CheckIcon />}
                   colorScheme="green"
@@ -249,7 +358,7 @@ const SettingsClientList = () => {
         </Tbody>
         <Tfoot>
           <Tr>
-            <Td colSpan={3}>
+            <Td colSpan={4}>
               <IconButton
                 icon={<AddIcon />}
                 aria-label="Add new client"

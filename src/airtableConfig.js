@@ -6,14 +6,16 @@ const taskTableId = import.meta.env.VITE_AIRTABLE_TABLE_ID;
 const clientTableId = import.meta.env.VITE_AIRTABLE_CLIENT_TABLE_ID;
 const statusConfigTableId = import.meta.env.VITE_AIRTABLE_CONFIG_STATUS_COLOURS;
 const lifecycleStagesTableId = import.meta.env.VITE_AIRTABLE_LIFECYCLE_STAGES_TABLE_ID;
+const teamTableId = import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID;
 
-if (!pat || !baseId || !taskTableId || !clientTableId || !lifecycleStagesTableId) {
+if (!pat || !baseId || !taskTableId || !clientTableId || !lifecycleStagesTableId || !teamTableId) {
   console.error('Missing Airtable configuration. Please check your .env file.');
   if (!pat) console.error('VITE_AIRTABLE_PAT is missing');
   if (!baseId) console.error('VITE_AIRTABLE_BASE_ID is missing');
   if (!taskTableId) console.error('VITE_AIRTABLE_TABLE_ID is missing');
   if (!clientTableId) console.error('VITE_AIRTABLE_CLIENT_TABLE_ID is missing');
   if (!lifecycleStagesTableId) console.error('VITE_AIRTABLE_LIFECYCLE_STAGES_TABLE_ID is missing');
+  if (!teamTableId) console.error('VITE_AIRTABLE_TEAM_TABLE_ID is missing');
 }
 
 Airtable.configure({ endpointUrl: 'https://api.airtable.com', apiKey: pat });
@@ -282,7 +284,53 @@ export const createTask = async (task) => {
   }
 };
 
+const teamTable = teamTableId ? base(teamTableId) : null;
 const statusConfigTable = statusConfigTableId ? base(statusConfigTableId) : null;
+
+export const fetchUsers = async () => {
+  if (!teamTable) {
+    console.error('Team table is not configured properly.');
+    throw new Error('Team table is not configured properly.');
+  }
+
+  try {
+    const records = await teamTable.select().all();
+    return records.map(record => ({
+      id: record.id,
+      name: record.fields.Name,
+      avatar: record.fields.Avatar?.[0]?.url
+    }));
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
+};
+
+export const updateClientAssignedOwner = async (clientId, ownerId) => {
+  if (!clientTable) {
+    console.error('Client table is not configured properly.');
+    throw new Error('Client table is not configured properly.');
+  }
+
+  try {
+    const updatedRecord = await clientTable.update(clientId, {
+      AssignedOwner: ownerId ? [ownerId] : null,
+    });
+
+    return {
+      id: updatedRecord.id,
+      name: updatedRecord.fields.Client,
+      status: updatedRecord.fields.Status,
+      lastUpdated: updatedRecord.fields['Last Modified'],
+      isPinned: updatedRecord.fields.pinnedClient || false,
+      lifecycleStage: updatedRecord.fields.lifecycleStage,
+      AssignedOwner: updatedRecord.fields.AssignedOwner,
+    };
+  } catch (error) {
+    console.error('Error updating client assigned owner:', error);
+    throw error;
+  }
+};
 
 export const fetchStatusConfig = async () => {
   if (!statusConfigTable) {

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { FaCog } from 'react-icons/fa';
 
 const LeftNavBar = () => {
-  const navItems = ['Tasks', 'Deadlines'];
+  const navItems = ['Tasks', 'Deadlines', 'Action Owner'];
   return (
     <Box 
       bg="gray.900" 
@@ -25,7 +25,7 @@ const LeftNavBar = () => {
           mb={4}
         />
         {navItems.map((item) => (
-          <Link key={item} to={`/${item.toLowerCase()}`}>
+          <Link key={item} to={`/${item.toLowerCase().replace(' ', '-')}`}>
             <Button
               as="div"
               variant="ghost"
