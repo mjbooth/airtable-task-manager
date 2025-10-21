@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import StatusSelect from './StatusSelect';
 import ClientSelect from './ClientSelect';
 import { useStatusConfig } from '../contexts/StatusContext';
 import OwnerSelect from './OwnerSelect';
-import axios from 'axios';
+import { useClients, useOwners } from '../hooks/useAirtableData';
+import { mutate } from 'swr';
 import {
   Modal,
   ModalOverlay,
@@ -36,6 +37,11 @@ import { updateTask, createTask } from '../airtableConfig';
 const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, isNewTask = false }) => {
   const toast = useToast();
   const statusConfig = useStatusConfig();
+
+  // Use cached data hooks
+  const { clients } = useClients();
+  const { owners } = useOwners();
+
   const [editMode, setEditMode] = useState(false);
   const [editedTask, setEditedTask] = useState(task || {});
   const [isChanged, setIsChanged] = useState(false);
@@ -97,10 +103,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
         id: updatedTask.id
       };
 
-      if (updatedTaskData.AssignedOwner && updatedTaskData.AssignedOwner.length > 0) {
-        await fetchOwnerName(updatedTaskData.AssignedOwner[0]);
-      }
-
       toast({
         title: isNewTask ? "Task created" : "Task updated",
         description: isNewTask ? "The new task has been created." : "The task has been successfully updated.",
@@ -121,6 +123,9 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
 
       // Force a re-render of the component
       setEditedTask({ ...updatedTaskData });
+
+      // Invalidate tasks cache to trigger refresh across all components
+      mutate('tasks');
     } catch (error) {
       console.error(isNewTask ? 'Error creating task:' : 'Error updating task:', error);
       // Log the error response if available
@@ -158,33 +163,18 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
       setEditMode(false);
     }
     setIsChanged(false);
-  }, [task, isNewTask, isOpen]); // Include `isOpen` to reinitialize on open  
+  }, [task, isNewTask, isOpen]); // Include `isOpen` to reinitialize on open
 
-  const [clients, setClients] = useState([]);
-
-  const fetchClients = async () => {
-    try {
-      const response = await axios.get(
-        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_CLIENT_TABLE_ID}`,
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
-          },
-        }
-      );
-      setClients(response.data.records.map(record => record.fields.Client));
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
+  // Memoize client names list
+  const clientNames = useMemo(() => {
+    return clients.map(client => client.name || client.Client).filter(Boolean);
+  }, [clients]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No date available';
     const date = new Date(dateString);
     return format(date, "MMMM d, yyyy");
   };
-
-  const [ownerName, setOwnerName] = useState('');
 
   const handleTaskModalClose = () => {
     onClose();
@@ -196,93 +186,14 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
     };
   }, []);
 
-  const [currentStatus, setCurrentStatus] = useState(task ? task.Status : '');
-
-  const updateExistingTaskStatus = async (newStatus) => {
-    try {
-      const updatedTask = await updateTask({ ...task, Status: newStatus });
-      toast({
-        title: "Status updated",
-        description: `Task status changed to ${newStatus}`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-      if (onTasksUpdate) onTasksUpdate();
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      toast({
-        title: "Error updating status",
-        description: "There was an error updating the task status.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const fetchOwnerName = async (ownerId) => {
-    if (!ownerId) {
-      setOwnerName('Unassigned');
-      return;
-    }
-
-    try {
-      const url = `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}/${ownerId}`;
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
-        },
-      });
-
-      if (response.data && response.data.fields && response.data.fields.Name) {
-        setOwnerName(response.data.fields.Name);
-      } else {
-        setOwnerName('Unknown');
-      }
-    } catch (error) {
-      console.error('Error fetching owner name:', error);
-      console.error('Error details:', error.response ? error.response.data : 'No response data');
-      setOwnerName('Error');
-    }
-  };
-
-  useEffect(() => {
-    fetchOwners();
-    fetchClients();
-
-    if (task && task.AssignedOwner && task.AssignedOwner.length > 0 && task.AssignedOwner[0] !== ownerName) {
-      fetchOwnerName(task.AssignedOwner[0]);
-    } else if (!task || !task.AssignedOwner || task.AssignedOwner.length === 0) {
-      setOwnerName('Unassigned');
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-      setOwnerName(''); // Reset owner name when component unmounts
+  // Memoize owner lookup
+  const getOwnerName = useMemo(() => {
+    return (ownerId) => {
+      if (!ownerId) return 'Unassigned';
+      const owner = owners.find(o => o.id === ownerId);
+      return owner ? owner.name : 'Unknown';
     };
-  }, [task]);
-
-  const [owners, setOwners] = useState([]);
-
-  const fetchOwners = async () => {
-    try {
-      const response = await axios.get(
-        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}`,
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
-          },
-        }
-      );
-      setOwners(response.data.records.map(record => ({
-        id: record.id,
-        name: record.fields.Name
-      })));
-    } catch (error) {
-      console.error('Error fetching owners:', error);
-    }
-  };
+  }, [owners]);
 
   const handleOwnerChange = (newOwnerId) => {
     // Check if newOwnerId is an object (event) or a string (ID)
@@ -290,13 +201,6 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
 
     setEditedTask(prev => ({ ...prev, AssignedOwner: ownerId ? [ownerId] : [] }));
     setIsChanged(true);
-
-    // Fetch and update the owner name
-    if (ownerId) {
-      fetchOwnerName(ownerId);
-    } else {
-      setOwnerName('Unassigned');
-    }
   };
 
   const handleEditClick = () => {
@@ -376,7 +280,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
                   <VStack align="stretch" spacing={4}>
                     <Box>
                       <StatusSelect
-                        value={editMode ? editedTask.Status : currentStatus}
+                        value={editedTask.Status}
                         onChange={handleStatusChange}
                       />
                     </Box>
@@ -385,7 +289,7 @@ const TaskModal = ({ isOpen, onClose, task, onOpenClientModal, onTasksUpdate, is
                       <ClientSelect
                         value={editedTask.Client || ''}
                         onChange={handleClientChange}
-                        clients={clients}
+                        clients={clientNames}
                         isEditable={editMode}
                       />
                     </Box>

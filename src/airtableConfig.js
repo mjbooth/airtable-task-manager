@@ -306,6 +306,45 @@ export const fetchUsers = async () => {
   }
 };
 
+// Alias for consistency - fetchOwners is the same as fetchUsers
+export const fetchOwners = fetchUsers;
+
+// Optimized function to fetch specific owners by ID (batch)
+export const fetchOwnersByIds = async (ownerIds) => {
+  if (!teamTable) {
+    console.error('Team table is not configured properly.');
+    throw new Error('Team table is not configured properly.');
+  }
+
+  if (!ownerIds || ownerIds.length === 0) {
+    return [];
+  }
+
+  try {
+    // Remove duplicates
+    const uniqueIds = [...new Set(ownerIds)];
+
+    // Batch fetch all owners at once
+    const ownerRecords = await Promise.all(
+      uniqueIds.map(id => teamTable.find(id).catch(err => {
+        console.error(`Error fetching owner ${id}:`, err);
+        return null;
+      }))
+    );
+
+    return ownerRecords
+      .filter(record => record !== null)
+      .map(record => ({
+        id: record.id,
+        name: record.fields.Name,
+        avatar: record.fields.Avatar?.[0]?.url
+      }));
+  } catch (error) {
+    console.error("Error fetching owners by IDs:", error);
+    throw error;
+  }
+};
+
 export const updateClientAssignedOwner = async (clientId, ownerId) => {
   if (!clientTable) {
     console.error('Client table is not configured properly.');

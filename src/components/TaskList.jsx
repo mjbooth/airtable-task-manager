@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   VStack,
@@ -20,7 +20,8 @@ import {
 } from '@chakra-ui/react';
 import { Switch, FormControl, FormLabel } from '@chakra-ui/react';
 import { BsThreeDots } from 'react-icons/bs';
-import { fetchTasks, fetchTaskDetails, fetchClients, updateClientStatus, updateTask, updateClientPinnedStatus, fetchLifecycleStages } from '../airtableConfig';
+import { updateClientStatus, updateTask, updateClientPinnedStatus } from '../airtableConfig';
+import { useAllAirtableData, optimisticUpdate } from '../hooks/useAirtableData';
 import ClientModal from './ClientModal';
 import TaskModal from './TaskModal';
 import { useTheme } from '@chakra-ui/react';
@@ -28,48 +29,22 @@ import { StarIcon } from '@chakra-ui/icons';
 import { useStatusConfig } from '../contexts/StatusContext';
 
 const TaskList = () => {
-  const [tasks, setTasks] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Use cached data hooks
+  const { tasks, clients, lifecycleStages, isLoading, isError, mutate } = useAllAirtableData();
+
   const [showCompleted, setShowCompleted] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [updateTrigger, setUpdateTrigger] = useState(0);
-  const [pinnedClients, setPinnedClients] = useState([]);
   const statusConfig = useStatusConfig();
-  const [lifecycleStages, setLifecycleStages] = useState([]);
 
   const theme = useTheme();
 
-  const getData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [fetchedTasks, fetchedClients, fetchedLifecycleStages] = await Promise.all([
-        fetchTasks(),
-        fetchClients(),
-        fetchLifecycleStages()
-      ]);
-      setTasks(fetchedTasks);
-      setClients(fetchedClients);
-      setLifecycleStages(fetchedLifecycleStages);
-      setPinnedClients(fetchedClients.filter(client => client.isPinned).map(client => client.name));
-      setError(null);
-
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Failed to fetch data. Please check your Airtable configuration.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    getData();
-  }, [getData, updateTrigger]);
+  // Memoize pinned clients list
+  const pinnedClients = useMemo(() => {
+    return clients.filter(client => client.isPinned).map(client => client.name);
+  }, [clients]);
 
   const togglePinnedClient = async (clientId) => {
     try {
@@ -77,71 +52,73 @@ const TaskList = () => {
       if (!client) return;
 
       const newPinnedStatus = !client.isPinned;
+
+      // Optimistic update
+      optimisticUpdate(mutate.clients, { id: clientId, isPinned: newPinnedStatus }, (currentClients, update) => {
+        return currentClients.map(c =>
+          c.id === update.id ? { ...c, isPinned: update.isPinned } : c
+        );
+      });
+
+      // Perform actual update
       await updateClientPinnedStatus(clientId, newPinnedStatus);
 
-      setClients(prevClients =>
-        prevClients.map(c =>
-          c.id === clientId ? { ...c, isPinned: newPinnedStatus } : c
-        )
-      );
-
-      setPinnedClients(prev =>
-        newPinnedStatus
-          ? [...prev, client.name]
-          : prev.filter(name => name !== client.name)
-      );
+      // Revalidate to ensure sync
+      mutate.clients();
 
     } catch (error) {
       console.error('Error toggling pinned status:', error);
+      // Revalidate on error to revert optimistic update
+      mutate.clients();
     }
   };
 
   const onTasksUpdate = useCallback((updatedTask) => {
-    setTasks(prevTasks => {
-      const newTasks = prevTasks.map(task =>
-        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+    // Optimistic update
+    optimisticUpdate(mutate.tasks, updatedTask, (currentTasks, update) => {
+      return currentTasks.map(task =>
+        task.id === update.id ? { ...task, ...update } : task
       );
-      return newTasks;
     });
 
     // Update the selectedTask to reflect changes
     setSelectedTask(prev => (prev && prev.id === updatedTask.id ? { ...prev, ...updatedTask } : prev));
-
-    // Force a re-render by updating the updateTrigger
-    setUpdateTrigger(prev => prev + 1);
-  }, []);
+  }, [mutate.tasks]);
 
   const handleTaskUpdate = useCallback((updatedTask) => {
-    setTasks(prevTasks => {
-      const newTasks = prevTasks.map(task =>
-        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+    // Optimistic update
+    optimisticUpdate(mutate.tasks, updatedTask, (currentTasks, update) => {
+      return currentTasks.map(task =>
+        task.id === update.id ? { ...task, ...update } : task
       );
-      return newTasks;
     });
 
     // Update the selectedTask to reflect changes
     setSelectedTask(prev => (prev && prev.id === updatedTask.id ? { ...prev, ...updatedTask } : prev));
-
-    // Force a re-render by updating the updateTrigger
-    setUpdateTrigger(prev => prev + 1);
-  }, []);
+  }, [mutate.tasks]);
 
   const handleClientStatusUpdate = useCallback(async (clientId, newStatus) => {
     try {
+      // Optimistic update
+      optimisticUpdate(mutate.clients, { id: clientId, status: newStatus }, (currentClients, update) => {
+        return currentClients.map(client =>
+          client.id === update.id ? { ...client, status: update.status } : client
+        );
+      });
+
       const updatedClient = await updateClientStatus(clientId, newStatus);
-      setClients(prevClients =>
-        prevClients.map(client =>
-          client.id === clientId ? { ...client, ...updatedClient } : client
-        )
-      );
-      // Fetch updated data
-      await getData();
+
+      // Revalidate to ensure sync
+      mutate.clients();
+
       return updatedClient;
     } catch (error) {
       console.error('Error updating client status:', error);
+      // Revalidate on error to revert optimistic update
+      mutate.clients();
       throw error;
     }
-  }, [getData]);
+  }, [mutate.clients]);
 
   useEffect(() => {
     if (!isClientModalOpen) {
@@ -155,14 +132,15 @@ const TaskList = () => {
     }
   }, [isTaskModalOpen]);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     if (!status) return theme.colors.gray[200];
     return theme.colors.status[status] || theme.colors.gray[200];
-  };
+  }, [theme.colors]);
 
-  const getClientInfo = (clientName) => {
-    const client = clients.find(c => c.name === clientName);
-    if (client) {
+  // Memoize client info lookup map
+  const clientInfoMap = useMemo(() => {
+    const map = new Map();
+    clients.forEach(client => {
       let lifecycleStageName = 'Unknown';
       if (client.lifecycleStage && client.lifecycleStage.length > 0) {
         const lifecycleStage = lifecycleStages.find(stage => stage.id === client.lifecycleStage[0]);
@@ -170,19 +148,34 @@ const TaskList = () => {
       } else if (client.clientLifecycleStage && client.clientLifecycleStage.length > 0) {
         lifecycleStageName = client.clientLifecycleStage[0];
       }
-      return {
+      map.set(client.name, {
         name: client.name,
         lifecycleStageId: client.lifecycleStage ? client.lifecycleStage[0] : null,
         lifecycleStageName: lifecycleStageName
-      };
-    } else {
-      console.log('Client not found:', clientName);
-      return { name: clientName, lifecycleStageId: null, lifecycleStageName: 'Unknown' };
-    }
-  };
+      });
+    });
+    return map;
+  }, [clients, lifecycleStages]);
 
-  const groupTasksByLifecycleStageAndClient = (tasks) => {
-    const grouped = tasks.reduce((acc, task) => {
+  const getClientInfo = useCallback((clientName) => {
+    return clientInfoMap.get(clientName) || { name: clientName, lifecycleStageId: null, lifecycleStageName: 'Unknown' };
+  }, [clientInfoMap]);
+
+  // Memoize filtered tasks
+  const filteredTasks = useMemo(() => {
+    return showCompleted
+      ? tasks
+      : tasks.filter(task => !['completed', 'cancelled', 'blocked'].includes(task.Status?.toLowerCase()));
+  }, [tasks, showCompleted]);
+
+  // Memoize lifecycle stage order
+  const lifecycleStageOrder = useMemo(() => {
+    return lifecycleStages.map(stage => stage.name);
+  }, [lifecycleStages]);
+
+  // Memoize grouped tasks
+  const groupedTasks = useMemo(() => {
+    const grouped = filteredTasks.reduce((acc, task) => {
       const { name: clientName, lifecycleStageName } = getClientInfo(task.Client);
       const stageName = lifecycleStageName || 'Unknown';
 
@@ -194,20 +187,20 @@ const TaskList = () => {
       }
       acc[stageName][clientName].push(task);
 
-      // Add pinned clients with no tasks
-      pinnedClients.forEach(pinnedClientName => {
-        const { lifecycleStageName: pinnedStageName } = getClientInfo(pinnedClientName);
-        const pinnedStage = pinnedStageName || 'Unknown';
-        if (!acc[pinnedStage]) {
-          acc[pinnedStage] = {};
-        }
-        if (!acc[pinnedStage][pinnedClientName]) {
-          acc[pinnedStage][pinnedClientName] = [];
-        }
-      });
-
       return acc;
     }, {});
+
+    // Add pinned clients with no tasks
+    pinnedClients.forEach(pinnedClientName => {
+      const { lifecycleStageName: pinnedStageName } = getClientInfo(pinnedClientName);
+      const pinnedStage = pinnedStageName || 'Unknown';
+      if (!grouped[pinnedStage]) {
+        grouped[pinnedStage] = {};
+      }
+      if (!grouped[pinnedStage][pinnedClientName]) {
+        grouped[pinnedStage][pinnedClientName] = [];
+      }
+    });
 
     // Sort clients alphabetically within each lifecycle stage
     Object.keys(grouped).forEach(stage => {
@@ -217,15 +210,7 @@ const TaskList = () => {
     });
 
     return grouped;
-  };
-
-  const filteredTasks = showCompleted
-    ? tasks
-    : tasks.filter(task => !['completed', 'cancelled', 'blocked'].includes(task.Status?.toLowerCase()));
-
-  const groupedTasks = groupTasksByLifecycleStageAndClient(filteredTasks);
-
-  const lifecycleStageOrder = lifecycleStages.map(stage => stage.name);
+  }, [filteredTasks, pinnedClients, getClientInfo]);
 
   const handleClientClick = (clientName) => {
     const client = clients.find(c => c.name === clientName);
@@ -251,18 +236,21 @@ const TaskList = () => {
     setIsTaskModalOpen(false);
   };
 
-  const sortedGroupedTasks = Object.entries(groupedTasks).sort((a, b) => {
-    return lifecycleStageOrder.indexOf(a[0]) - lifecycleStageOrder.indexOf(b[0]);
-  });
+  // Memoize sorted grouped tasks
+  const sortedGroupedTasks = useMemo(() => {
+    return Object.entries(groupedTasks).sort((a, b) => {
+      return lifecycleStageOrder.indexOf(a[0]) - lifecycleStageOrder.indexOf(b[0]);
+    });
+  }, [groupedTasks, lifecycleStageOrder]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Flex width="100%" height="80vh" justifyContent="center" alignItems="center">
         <Spinner size="xl" />
       </Flex>
     );
   }
-  if (error) return <Text color="red.500">{error}</Text>;
+  if (isError) return <Text color="red.500">Failed to fetch data. Please check your Airtable configuration.</Text>;
 
   return (
     <Box width="100%" maxWidth="100%" height="calc(100vh - 104px)">

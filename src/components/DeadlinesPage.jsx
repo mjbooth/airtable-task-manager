@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Box,
     Heading,
@@ -21,90 +21,42 @@ import {
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import { format, isToday, isThisWeek, isThisMonth, isBefore, startOfDay } from 'date-fns';
-import { fetchTasks, fetchClients } from '../airtableConfig';
-import axios from 'axios';
+import { useTasks, useClients, useOwners } from '../hooks/useAirtableData';
 import TaskModal from './TaskModal';
 import { useStatusConfig } from '../contexts/StatusContext';
 import SkeletonTaskCard from './SkeletonTaskCard';
 
 const DeadlinesPage = () => {
-    const [tasks, setTasks] = useState([]);
-    const [clients, setClients] = useState([]);
-    const [activeOwners, setActiveOwners] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [owners, setOwners] = useState([]);
+    // Use cached data hooks
+    const { tasks: allTasks, isLoading: tasksLoading, isError: tasksError } = useTasks();
+    const { clients, isLoading: clientsLoading } = useClients();
+    const { owners: allOwners, isLoading: ownersLoading } = useOwners();
+
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [focusedOwner, setFocusedOwner] = useState(null);
     const [dateFilter, setDateFilter] = useState('All');
     const statusConfig = useStatusConfig();
     const theme = useTheme();
-    const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                await Promise.all([fetchTasksData(), fetchClientsData()]);
-            } catch (error) {
-                console.error("Error fetching data:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    const isLoading = tasksLoading || clientsLoading || ownersLoading;
 
-        fetchData();
-    }, []);
+    // Memoize filtered and sorted tasks (exclude completed, cancelled, blocked)
+    const tasks = useMemo(() => {
+        const excludedStatuses = ['Completed', 'Cancelled', 'Blocked'];
+        return allTasks
+            .filter(task => !excludedStatuses.includes(task.Status))
+            .sort((a, b) => new Date(a.DueDate) - new Date(b.DueDate));
+    }, [allTasks]);
 
-    const fetchTasksData = async () => {
-        try {
-            const fetchedTasks = await fetchTasks();
-            const excludedStatuses = ['Completed', 'Cancelled', 'Blocked'];
-            const filteredAndSortedTasks = fetchedTasks
-                .filter(task => !excludedStatuses.includes(task.Status))
-                .sort((a, b) => new Date(a.DueDate) - new Date(b.DueDate));
-            setTasks(filteredAndSortedTasks);
+    // Memoize owners that have tasks assigned to them
+    const owners = useMemo(() => {
+        const uniqueOwnerIds = [...new Set(tasks
+            .flatMap(task => task.AssignedOwner || [])
+            .filter(owner => owner))];
 
-            const uniqueOwnerIds = [...new Set(filteredAndSortedTasks
-                .flatMap(task => task.AssignedOwner || [])
-                .filter(owner => owner))];
-
-            const ownersDetails = await Promise.all(uniqueOwnerIds.map(async (ownerId) => {
-                try {
-                    const response = await axios.get(
-                        `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_AIRTABLE_TEAM_TABLE_ID}/${ownerId}`,
-                        {
-                            headers: {
-                                Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_PAT}`,
-                            },
-                        }
-                    );
-                    return {
-                        id: ownerId,
-                        name: response.data.fields.Name,
-                        avatar: response.data.fields.Avatar ? response.data.fields.Avatar[0].url : ''
-                    };
-                } catch (error) {
-                    console.error(`Error fetching owner details for ID ${ownerId}:`, error);
-                    return { id: ownerId, name: 'Unknown', avatar: '' };
-                }
-            }));
-
-            setOwners(ownersDetails);
-            setActiveOwners(ownersDetails.map(owner => owner.id));
-        } catch (error) {
-            console.error("Error fetching tasks:", error);
-        }
-    };
-
-    const fetchClientsData = async () => {
-        try {
-            const fetchedClients = await fetchClients();
-            setClients(fetchedClients);
-        } catch (error) {
-            console.error("Error fetching clients:", error);
-        }
-    };
+        return allOwners.filter(owner => uniqueOwnerIds.includes(owner.id));
+    }, [tasks, allOwners]);
 
     const handleOwnerFilter = (ownerId) => {
         if (focusedOwner === ownerId) {
@@ -124,46 +76,46 @@ const DeadlinesPage = () => {
         setSelectedTask(null);
     };
 
-    const handleTaskUpdate = (updatedTask) => {
-        setTasks(prevTasks => prevTasks.map(task =>
-            task.id === updatedTask.id ? updatedTask : task
-        ));
+    const handleTaskUpdate = useCallback((updatedTask) => {
+        // Task updates are handled by SWR cache invalidation
+        // The cache will be automatically updated when TaskModal saves
         handleTaskModalClose();
-    };
+    }, []);
 
-    const handleDateFilter = (filter) => {
+    const handleDateFilter = useCallback((filter) => {
         setDateFilter(filter);
-    };
+    }, []);
 
-    const filterTasksByDate = (tasks) => {
+    // Memoize filtered tasks by date and owner
+    const filteredTasks = useMemo(() => {
+        // First filter by owner if one is focused
+        let ownerFiltered = focusedOwner
+            ? tasks.filter(task => task.AssignedOwner && task.AssignedOwner.includes(focusedOwner))
+            : tasks;
+
+        // Then filter by date
         const today = startOfDay(new Date());
         switch (dateFilter) {
             case 'Today':
-                return tasks.filter(task => isToday(new Date(task.DueDate)));
+                return ownerFiltered.filter(task => isToday(new Date(task.DueDate)));
             case 'Week':
-                return tasks.filter(task => isThisWeek(new Date(task.DueDate)));
+                return ownerFiltered.filter(task => isThisWeek(new Date(task.DueDate)));
             case 'Month':
-                return tasks.filter(task => isThisMonth(new Date(task.DueDate)));
+                return ownerFiltered.filter(task => isThisMonth(new Date(task.DueDate)));
             case 'Overdue':
-                return tasks.filter(task => isBefore(new Date(task.DueDate), today));
+                return ownerFiltered.filter(task => isBefore(new Date(task.DueDate), today));
             default:
-                return tasks;
+                return ownerFiltered;
         }
-    };
+    }, [tasks, focusedOwner, dateFilter]);
 
-    const filteredTasks = filterTasksByDate(
-        focusedOwner
-            ? tasks.filter(task => task.AssignedOwner && task.AssignedOwner.includes(focusedOwner))
-            : tasks
-    );
-
-    const getStatusColor = (status) => {
+    const getStatusColor = useCallback((status) => {
         return theme.colors.status[status] || theme.colors.gray[200];
-    };
+    }, [theme.colors]);
 
-    const getStatusTextColor = (status) => {
+    const getStatusTextColor = useCallback((status) => {
         return 'black';
-    };
+    }, []);
 
     return (
         <Flex height="calc(100vh - 104px)" direction="column">
